@@ -1,7 +1,8 @@
 const State = require('../models/State');
+const Graph = require('../models/Graph');
 
 class DecisionEngine {
-  processEmergency(data) {
+  async processEmergency(data) {
     const { type, symptoms, age, impact, no_movement } = data;
     
     // 1. Classification
@@ -19,20 +20,23 @@ class DecisionEngine {
 
     const priority = severity === "CRITICAL" ? 1 : severity === "HIGH" ? 2 : 3;
 
-    // Base Bengaluru coords (Hospital)
-    const baseLat = 12.9716;
-    const baseLng = 77.5946;
+    // Basavanagudi, BMS College coords (Hospital)
+    const baseLat = 12.9415;
+    const baseLng = 77.5660;
 
-    // 2. Create Patient Digital Twin
-    const patLat = baseLat + (Math.random() - 0.5) * 0.05;
-    const patLng = baseLng + (Math.random() - 0.5) * 0.05;
+    const hospLoc = [baseLat, baseLng];
+
+    // 2. Create Patient Digital Twin (within ~1.5km radius)
+    const patLat = baseLat + (Math.random() - 0.5) * 0.015;
+    const patLng = baseLng + (Math.random() - 0.5) * 0.015;
+    const patLoc = [patLat, patLng];
 
     const patientTwin = {
       id: `PAT-${Math.floor(Math.random() * 10000)}`,
       type: type || 'Unknown',
       severity,
       priority,
-      location: [patLat, patLng],
+      location: patLoc,
       status: 'AWAITING_AMBULANCE',
       vitals: {
         heartRate: type === 'Heart Attack' ? 140 : 85,
@@ -41,22 +45,28 @@ class DecisionEngine {
       }
     };
 
-    // 3. Assign Ambulance
-    const ambLat = patLat + (Math.random() > 0.5 ? 0.03 : -0.03);
-    const ambLng = patLng + (Math.random() > 0.5 ? 0.03 : -0.03);
+    // 3. Assign Ambulance (starting further away ~2.5km max)
+    const ambLat = baseLat + (Math.random() > 0.5 ? 0.02 : -0.02);
+    const ambLng = baseLng + (Math.random() > 0.5 ? 0.02 : -0.02);
+    const ambLoc = [ambLat, ambLng];
+
+    // Fetch real routes from OSRM mapping
+    const routes = await Graph.findMultipleRoutes(ambLoc, patLoc);
+    let bestEta = routes && routes.length ? routes[0].etaMinutes : (severity === "CRITICAL" ? 15 : 25);
 
     const ambulance = {
       id: `AMB-${Math.floor(Math.random() * 100)}`,
-      location: [ambLat, ambLng],
-      eta: severity === "CRITICAL" ? 15 : 25,
+      location: ambLoc,
+      eta: bestEta * 60, // Convert to seconds for UI simulation
+      currentTargetIdx: 0,
       status: 'DISPATCHED'
     };
 
     // 4. Select Hospital
     const hospital = {
       id: 'HOSP-1',
-      name: 'Bengaluru Central Life Care',
-      location: [baseLat, baseLng],
+      name: 'BMS Hospital Basavanagudi',
+      location: hospLoc,
       prepStatus: {
         icuReady: severity === "CRITICAL",
         doctorsReady: true
@@ -68,7 +78,9 @@ class DecisionEngine {
       systemStatus: 'ACTIVE',
       patient: patientTwin,
       ambulance,
-      hospital
+      hospital,
+      routes: routes || [],
+      currentRouteIndex: 0
     });
 
     return State.getState();

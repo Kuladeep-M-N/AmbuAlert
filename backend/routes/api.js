@@ -4,8 +4,8 @@ const DecisionEngine = require('../services/DecisionEngine');
 const State = require('../models/State');
 
 // POST /emergency - Trigger an emergency
-router.post('/emergency', (req, res) => {
-  const result = DecisionEngine.processEmergency(req.body);
+router.post('/emergency', async (req, res) => {
+  const result = await DecisionEngine.processEmergency(req.body);
   res.json({ message: 'Emergency processed', state: result });
 });
 
