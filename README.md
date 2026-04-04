@@ -1,4 +1,4 @@
-# AmbuAlert DT 🚑 🚨
+# AmbuAlert DT 🚑 
 
 > **AI-Powered Digital Twin for Emergency Response Protocol**
 
