@@ -27,7 +27,7 @@ export default function Dashboard() {
           <p className="text-slate-400">AmbuAlert AI Gateway Overview</p>
         </div>
         <button 
-          onClick={() => navigate('/input')}
+          onClick={() => navigate('/app/input')}
           className="btn btn-primary shadow-lg shadow-blue-500/20 flex items-center gap-2"
         >
           <Activity className="h-5 w-5"/>
@@ -58,7 +58,7 @@ export default function Dashboard() {
         <Server className="h-12 w-12 mb-4 opacity-50" />
         <p>Simulation telemetry will render here once initiated.</p>
         <button 
-          onClick={() => navigate('/input')}
+          onClick={() => navigate('/app/input')}
           className="mt-4 text-blue-400 hover:underline"
         >
           Inject new emergency event &rarr;

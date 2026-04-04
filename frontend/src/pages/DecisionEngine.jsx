@@ -28,7 +28,7 @@ export default function DecisionEngine() {
         setStep(s => {
           if (s >= 4) {
             clearInterval(interval);
-            setTimeout(() => navigate('/live'), 2000);
+            setTimeout(() => navigate('/app/live'), 2000);
             return s;
           }
           return s + 1;
@@ -48,7 +48,7 @@ export default function DecisionEngine() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col items-center justify-center h-full pb-20 animate-in zoom-in-95 duration-500">
+    <div className="max-w-3xl mx-auto flex flex-col items-center justify-center min-h-full py-12 animate-in zoom-in-95 duration-500">
       
       <div className="relative mb-12 flex items-center justify-center">
          <div className={`absolute inset-0 bg-blue-500 rounded-full blur-[80px] opacity-20 ${step >= 4 ? 'animate-pulse' : ''}`}></div>

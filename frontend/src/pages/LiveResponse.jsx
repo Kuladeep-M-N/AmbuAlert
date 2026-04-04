@@ -44,7 +44,7 @@ export default function LiveResponse() {
   const mapCenter = [ambulance.location[0], ambulance.location[1]];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-6rem)] animate-in fade-in duration-500">
+    <div className="flex flex-col lg:flex-row gap-6 min-h-full animate-in fade-in duration-500">
       {/* Left: Live GeoMap Tracking */}
       <div className="lg:w-2/3 flex flex-col gap-4">
         
