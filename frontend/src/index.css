@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+body {
+  background-color: #0f172a; /* Slate 900 */
+  color: #f8fafc; /* Slate 50 */
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.card {
+  background-color: #1e293b; /* Slate 800 */
+  border: 1px solid #334155; /* Slate 700 */
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+}
+.btn-primary:hover {
+  background-color: #2563eb;
+}
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+}
+.btn-danger:hover {
+  background-color: #dc2626;
+}
+
+.glow-red {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+  border: 1px solid rgba(239, 68, 68, 0.8) !important;
+}
+
+/* Base custom font mapping just in case */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
