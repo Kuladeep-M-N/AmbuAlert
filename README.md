@@ -35,4 +35,3 @@ npm run dev
 The project is currently configured for a live ecosystem demo at IEEE TechX 2026.
 
 ---
-*Developed by Kuladeep M N*
