@@ -17,7 +17,7 @@ class SimulationEngine {
     
     this.intervalId = setInterval(() => {
       this.tick();
-    }, 1000); // Run every second
+    }, 500); // Run every half second
   }
 
   stop() {
@@ -93,17 +93,20 @@ class SimulationEngine {
          ambulance.currentTargetIdx = currentTargetIdx;
          
          // Move along the vector
-         let step = 0.0003; // Smoothing factor
+         let step = 0.0005; // Moderately faster smoothing speed
          let length = Math.sqrt(dx*dx + dy*dy);
          
          if (length > step) {
              ax += (dx/length) * step;
              ay += (dy/length) * step;
          } else {
+             // Vector hit solidly without paradox fractioning
              ax = cx; 
              ay = cy;
+             currentTargetIdx++; // Increment the node path tracker dynamically
          }
          
+         ambulance.currentTargetIdx = currentTargetIdx;
          ambulance.location = [ax, ay];
       }
 

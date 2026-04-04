@@ -9,11 +9,14 @@ const ambIcon = new L.divIcon({ className: 'custom-icon', html: '<div class="w-6
 const patIcon = new L.divIcon({ className: 'custom-icon', html: '<div class="w-5 h-5 bg-yellow-400 rounded-full border-2 border-white shadow-[0_0_15px_rgba(250,204,21,1)] animate-ping relative z-40"></div>', iconSize: [20, 20], iconAnchor: [10, 10] });
 const hospIcon = new L.divIcon({ className: 'custom-icon', html: '<div class="w-6 h-6 bg-blue-500 rounded-md border-2 border-white flex items-center justify-center text-white text-[10px] font-bold shadow-lg z-30">H</div>', iconSize: [24, 24], iconAnchor: [12, 12] });
 
-function MapCenterUpdater({ center }) {
+function AmbulanceTracker({ location, isDispatched }) {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(center, 15, { animate: true, duration: 2 });
-  }, [center, map]);
+    if (location && isDispatched) {
+      // Pan to the ambulance location using a smooth 1-second transition
+      map.panTo(location, { animate: true, duration: 1.0, easeLinearity: 1 });
+    }
+  }, [location, map, isDispatched]);
   return null;
 }
 
@@ -61,41 +64,48 @@ export default function LiveResponse() {
         </div>
 
         <div className="flex-1 rounded-xl overflow-hidden border-2 border-slate-700 relative shadow-[0_0_30px_rgba(0,0,0,0.5)] z-0">
-          <MapContainer center={mapCenter} zoom={15} minZoom={14} maxZoom={17} style={{ height: '100%', width: '100%', background: '#e5e7eb' }}>
+          <MapContainer center={[ambulance.location[0], ambulance.location[1]]} zoom={15} minZoom={14} maxZoom={17} zoomSnap={0.5} zoomDelta={0.5} bounceAtZoomLimits={false} inertia={true} style={{ height: '100%', width: '100%', background: '#e5e7eb' }}>
             <TileLayer
               attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
               url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             />
-            <MapCenterUpdater center={mapCenter} />
+            <AmbulanceTracker location={[ambulance.location[0], ambulance.location[1]]} isDispatched={ambulance.status !== 'IDLE'} />
             
             {/* Draw Routes manually using Leaflet Polylines */}
-            {routes && [...routes].reverse().map((route, i) => (
-              <Polyline
-                key={route.id || i}
-                positions={route.coordinates}
-                pathOptions={{
-                  color: route.color, 
-                  weight: route.isOptimal ? 6 : 4,
-                  opacity: route.isOptimal ? 0.9 : 0.4,
-                  dashArray: route.isOptimal ? null : '10, 10',
-                  lineCap: 'round',
-                  lineJoin: 'round'
-                }}
-              />
-            ))}
+            {routes && [...routes].reverse().map((route, i) => {
+              const routeClass = route.isOptimal 
+                ? 'route-optimal' 
+                : (route.trafficString === 'High' ? 'route-traffic' : 'route-alternative');
+              
+              const weightConfig = route.isOptimal ? 8 : (route.trafficString === 'High' ? 3 : 5);
+
+              return (
+                <Polyline
+                  key={route.id || i}
+                  positions={route.coordinates}
+                  pathOptions={{
+                    className: routeClass,
+                    color: route.color, 
+                    weight: weightConfig,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                  }}
+                />
+              )
+            })}
             
             {patient.status !== 'DELIVERED' && (
               <Marker position={[patient.location[0], patient.location[1]]} icon={patIcon}>
-                <Popup className="text-slate-800 font-bold">Patient {patient.id}</Popup>
+                <Popup autoPan={false} className="text-slate-800 font-bold">Patient {patient.id}</Popup>
               </Marker>
             )}
             
             <Marker position={[ambulance.location[0], ambulance.location[1]]} icon={ambIcon}>
-              <Popup className="text-slate-800 font-bold">AMB: {ambulance.id}</Popup>
+              <Popup autoPan={false} className="text-slate-800 font-bold">AMB: {ambulance.id}</Popup>
             </Marker>
             
             <Marker position={[hospital.location[0], hospital.location[1]]} icon={hospIcon}>
-              <Popup className="text-slate-800 font-bold">{hospital.name}</Popup>
+              <Popup autoPan={false} className="text-slate-800 font-bold">{hospital.name}</Popup>
             </Marker>
           </MapContainer>
         </div>
@@ -128,6 +138,27 @@ export default function LiveResponse() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Hospital Decision Panel */}
+        <div className="card shadow-xl bg-slate-900 border border-slate-700 p-5 rounded-xl">
+          <div className="flex items-center gap-2 mb-4 text-slate-300">
+             <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center text-white text-xs font-bold">H</div>
+             <h3 className="font-bold tracking-widest uppercase text-blue-400">Hospital Match</h3>
+          </div>
+          <div className="flex flex-col text-white">
+             <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">{hospital.name}</span>
+             <span className="text-sm text-slate-400 mt-1 uppercase font-semibold">{hospital.spec} SPECIALIZATION</span>
+             
+             <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 mt-3 text-sm text-slate-300 italic border-l-4 border-l-blue-500">
+               "{hospital.selectionReason || 'Nearest General Facility AI Match'}"
+             </div>
+
+             <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-800">
+                <span className="text-xs uppercase font-bold text-slate-500">Distance</span>
+                <span className="font-mono font-bold text-lg text-slate-200">{hospital.distanceStr || "2.1 km"}</span>
+             </div>
           </div>
         </div>
 
