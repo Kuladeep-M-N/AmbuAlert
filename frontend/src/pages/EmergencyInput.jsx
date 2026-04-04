@@ -14,7 +14,7 @@ export default function EmergencyInput() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      setTimeout(() => navigate('/decision'), 600);
+      setTimeout(() => navigate('/app/decision'), 600);
     } catch (e) {
       console.error(e);
       setLoading(false);

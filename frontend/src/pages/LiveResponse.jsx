@@ -46,7 +46,7 @@ export default function LiveResponse() {
     : [hospital.location[0], hospital.location[1]];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-6rem)] animate-in fade-in duration-500">
+    <div className="flex flex-col lg:flex-row gap-6 min-h-full animate-in fade-in duration-500">
       {/* Left: Live GeoMap Tracking */}
       <div className="lg:w-[60%] flex flex-col gap-4">
         

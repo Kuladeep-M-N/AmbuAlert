@@ -14,7 +14,7 @@ export default function Metaverse() {
   }, []);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] animate-in fade-in duration-500">
+    <div className="flex flex-col min-h-full animate-in fade-in duration-500">
       <div className="flex justify-between items-center mb-4">
          <h1 className="text-2xl font-bold flex items-center gap-3">
            <Map className="w-6 h-6 text-blue-500" />
