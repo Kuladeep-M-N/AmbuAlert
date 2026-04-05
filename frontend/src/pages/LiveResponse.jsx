@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { socket } from '../socket';
 import {
   AlertTriangle, Clock, HeartPulse, LocateFixed,
@@ -8,14 +8,18 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 
 const glowStyles = `
-  .route-glow {
-    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
+  .route-best {
     stroke-linecap: round;
-    transition: all 0.5s ease-in-out;
+    stroke-linejoin: round;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .route-halo {
+    opacity: 0.3;
+    filter: blur(2px);
   }
   .route-alt {
-    stroke-dasharray: 8, 12;
-    opacity: 0.6;
+    stroke-dasharray: 6, 8;
+    opacity: 0.5;
   }
   .route-traffic {
     stroke-dasharray: 2, 8;
@@ -220,6 +224,8 @@ export default function LiveResponse() {
   const [sysState, setSysState]       = useState(null);
   const [scanning, setScanning]       = useState(false);
   const [scanStep, setScanStep]       = useState(0);  
+  const [pivotFlash, setPivotFlash]   = useState(false);
+  const [pivotReason, setPivotReason] = useState('');
   const prevStatus = useRef(null);
 
   useEffect(() => {
@@ -241,8 +247,16 @@ export default function LiveResponse() {
       prevStatus.current = data.systemStatus;
       setSysState(data);
     });
+
+    socket.on('SYSTEM_PIVOT', (data) => {
+      setPivotReason(data.reason);
+      setPivotFlash(true);
+      setTimeout(() => setPivotFlash(false), 8000);
+    });
+
     return () => {
       socket.off('system_update');
+      socket.off('SYSTEM_PIVOT');
       socket.disconnect();
     };
   }, []);
@@ -386,23 +400,40 @@ export default function LiveResponse() {
               <Marker key={`sig-${i}`} position={node} icon={signalIcon} />
             ))}
 
-            {/* AI-Powered A* Routing Visualization */}
+            {/* AI-Powered A* Routing Visualization with Premium Styling */}
             {routes?.map((route, i) => {
-              const weight = route.isOptimal ? 8 : 4;
-              const opacity = route.isOptimal ? 1 : 0.6;
-              const className = route.isOptimal ? 'route-glow' : (i === 1 ? 'route-alt' : 'route-traffic');
+              const isBest = route.isOptimal;
+              const color = isBest ? '#2E8B57' : (i === 1 ? '#E6B800' : '#D9534F');
+              const weight = isBest ? 5 : 4;
+              const opacity = isBest ? 0.8 : 0.6;
+              const dashArray = isBest ? null : '6, 8';
               
               return (
-                <Polyline
-                  key={route.id || i}
-                  positions={route.coordinates}
-                  pathOptions={{
-                    color: route.color || '#94a3b8',
-                    weight: weight,
-                    opacity: opacity,
-                    className: className
-                  }}
-                />
+                <React.Fragment key={route.id || i}>
+                  {/* Subtle Halo for Best Route */}
+                  {isBest && (
+                    <Polyline
+                      positions={route.coordinates}
+                      pathOptions={{
+                        color: '#fff',
+                        weight: weight + 3,
+                        opacity: 0.4,
+                        className: 'route-best route-halo'
+                      }}
+                    />
+                  )}
+                  {/* Main Route Polyline */}
+                  <Polyline
+                    positions={route.coordinates}
+                    pathOptions={{
+                      color: color,
+                      weight: weight,
+                      opacity: opacity,
+                      dashArray: dashArray,
+                      className: isBest ? 'route-best' : (i === 1 ? 'route-alt' : 'route-traffic')
+                    }}
+                  />
+                </React.Fragment>
               );
             })}
 
@@ -431,6 +462,28 @@ export default function LiveResponse() {
               return <Marker key={h.id} position={h.location} icon={hMarkerIcon} />;
             })}
           </MapContainer>
+
+          {/* AI Self-Healing Pivot Notification Overlay */}
+          {pivotFlash && (
+            <div className="absolute bottom-6 left-6 right-6 z-[1000] animate-in fade-in slide-in-from-bottom-5 duration-500">
+               <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-2xl border border-emerald-400/30 backdrop-blur-xl relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-emerald-400 animate-pulse" />
+                  <div className="flex items-center gap-4 relative z-10">
+                     <div className="w-12 h-12 bg-emerald-400/20 rounded-2xl flex items-center justify-center border border-emerald-400/50">
+                        <Zap className="w-6 h-6 text-emerald-400 animate-pulse" />
+                     </div>
+                     <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                           <div className="px-2 py-0.5 bg-emerald-400 text-slate-900 text-[8px] font-black rounded-md uppercase tracking-tighter">Diagnostic Locked</div>
+                           <h4 className="text-xs font-black text-emerald-400 uppercase tracking-widest">AI Autonomous Pivot</h4>
+                        </div>
+                        <p className="text-base font-black italic tracking-tighter leading-none mb-1">Vector Re-Optimized to {hospital.name}</p>
+                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{pivotReason || 'Clinical outcome re-triaged for regional efficiency.'}</p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          )}
         </div>
       </div>
 

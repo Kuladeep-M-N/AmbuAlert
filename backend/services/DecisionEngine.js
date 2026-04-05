@@ -102,28 +102,8 @@ class DecisionEngine {
     };
 
     // 3. AI Multi-Hospital Scoring Logic
-    let bestHospital = null;
-    let minHospScore = Infinity;
-
-    const scoredHospitals = this.hospitals.map(h => {
-      const dist = Graph.calcDistance(patient.location[0], patient.location[1], h.location[0], h.location[1]);
-      const specMatch = h.spec === prioritySpec;
-      
-      let capacityPenalty = 0;
-      if (h.availableBeds <= 0) capacityPenalty = 1000;
-      else if (h.availableBeds < 3) capacityPenalty = 5;
-      
-      // Clinical Priority Multiplier
-      const specBonus = specMatch ? 0.6 : 3.0; // High bonus for specialization match
-      const score = (dist * 1.5) + (h.trafficFactor * specBonus) + capacityPenalty;
-      
-      if (score < minHospScore) {
-        minHospScore = score;
-        bestHospital = h;
-      }
-
-      return { ...h, currentScore: score.toFixed(1), dist: dist.toFixed(2) };
-    });
+    const scoredHospitals = this.scoreHospitals(patient.location, prioritySpec);
+    const bestHospital = scoredHospitals.sort((a,b) => parseFloat(a.currentScore) - parseFloat(b.currentScore))[0];
 
     // 4. Soft Reservation Logic
     if (bestHospital && bestHospital.availableBeds > 0) {
@@ -151,7 +131,7 @@ class DecisionEngine {
       hospitals: scoredHospitals, 
       hospital: {
         ...bestHospital,
-        distanceStr: `${scoredHospitals.find(h => h.id === bestHospital.id).dist} km`,
+        distanceStr: `${bestHospital.dist} km`,
         selectionReason: `AI Strategy: Clinical ${bestHospital.spec} facility matched to ${prioritySpec} emergency.`
       },
       routes: [] // Routes calculated upon acceptance
@@ -159,6 +139,22 @@ class DecisionEngine {
 
     State.setState(newState);
     return newState;
+  }
+
+  scoreHospitals(patientLocation, prioritySpec) {
+    return this.hospitals.map(h => {
+      const dist = Graph.calcDistance(patientLocation[0], patientLocation[1], h.location[0], h.location[1]);
+      const specMatch = h.spec === prioritySpec;
+      
+      let capacityPenalty = 0;
+      if (h.availableBeds <= 0) capacityPenalty = 1000;
+      else if (h.availableBeds < 3) capacityPenalty = 5;
+      
+      const specBonus = specMatch ? 0.6 : 3.0; // High bonus for specialization match
+      const score = (dist * 1.5) + (h.trafficFactor * specBonus) + capacityPenalty;
+      
+      return { ...h, currentScore: score.toFixed(1), dist: dist.toFixed(2) };
+    });
   }
 }
 

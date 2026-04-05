@@ -21,7 +21,7 @@ class Graph {
     let url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=geojson&overview=full&alternatives=false&steps=true`;
     
     try {
-        let r = await fetch(url);
+        let r = await fetch(url, { signal: AbortSignal.timeout(2500) });
         let data = await r.json();
         if (data && data.routes && data.routes.length > 0) {
              let route = data.routes[0];
@@ -53,19 +53,31 @@ class Graph {
 
   async findMultipleRoutes(startLoc, endLoc, severity = 'ROUTINE') {
        let routes = [];
-       // 1. Best Route
-       let best = await this.fetchOSRM(startLoc, endLoc);
-       if (best) routes.push(best);
-
-       // 2. Alt 1 (Detour)
+       // Fast parallel fetching
        let wp1 = [ (startLoc[0] + endLoc[0])/2 + 0.005, (startLoc[1] + endLoc[1])/2 + 0.005 ];
-       let alt1 = await this.fetchOSRM(startLoc, endLoc, wp1);
-       if (alt1) routes.push(alt1);
-
-       // 3. Alt 2 (Detour opposite)
        let wp2 = [ (startLoc[0] + endLoc[0])/2 - 0.005, (startLoc[1] + endLoc[1])/2 - 0.005 ];
-       let alt2 = await this.fetchOSRM(startLoc, endLoc, wp2);
-       if (alt2) routes.push(alt2);
+       
+       const results = await Promise.allSettled([
+          this.fetchOSRM(startLoc, endLoc),
+          this.fetchOSRM(startLoc, endLoc, wp1),
+          this.fetchOSRM(startLoc, endLoc, wp2)
+       ]);
+
+       if (results[0].status === 'fulfilled' && results[0].value) routes.push(results[0].value);
+       if (results[1].status === 'fulfilled' && results[1].value) routes.push(results[1].value);
+       if (results[2].status === 'fulfilled' && results[2].value) routes.push(results[2].value);
+
+       // Absolute Fallback: If public OSRM network is offline, construct geometric drone-vector
+       if (routes.length === 0) {
+           console.log("⚠️ OSRM Network Offline - Utilizing Emergency Geometric Fallback Routing");
+           const dist = this.calcDistance(startLoc[0], startLoc[1], endLoc[0], endLoc[1]);
+           routes.push({
+               coordinates: [startLoc, endLoc],
+               distance: dist,
+               etaMinutes: Math.max(1, Math.ceil(dist / 0.5)),
+               signalNodes: []
+           });
+       }
 
        const trafficLevels = ['Low', 'Medium', 'High'];
        

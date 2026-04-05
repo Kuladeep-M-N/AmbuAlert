@@ -86,5 +86,17 @@ module.exports = (io) => {
     res.json({ message: 'Mission Accepted', state: updatedState });
   });
 
+  // POST /test-saturate — Manual test trigger for AI Pivot
+  router.post('/test-saturate', (req, res) => {
+    const state = State.getState();
+    if (!state.hospital) return res.status(400).json({ error: 'No active hospital' });
+    const h = DecisionEngine.hospitals.find(h => h.id === state.hospital.id);
+    if (!h) return res.status(404).json({ error: 'Hospital not found in DecisionEngine' });
+    
+    h.availableBeds = 0;
+    console.log(`🚨 TEST: Hospital ${h.name} saturated to 0 beds.`);
+    res.json({ message: 'Hospital saturated', hospital: h.name });
+  });
+
   return router;
 };

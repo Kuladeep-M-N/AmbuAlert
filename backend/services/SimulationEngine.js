@@ -1,5 +1,6 @@
 const State = require('../models/State');
 const Graph = require('../models/Graph');
+const DecisionEngine = require('./DecisionEngine');
 
 /**
  * SimulationEngine — tick-based ambulance movement
@@ -28,6 +29,7 @@ class SimulationEngine {
     this.intervalId   = null;
     this.loadingRoute = false;   // prevents double OSRM fetches
     this.pickupTimer  = 0;       // countdown ticks for pickup pause
+    this.capacityJitterTicks = 0; 
   }
 
   setIo(io) { this.io = io; }
@@ -229,7 +231,62 @@ class SimulationEngine {
         patient.vitals.oxygen + (Math.random() - 0.2) * 2));
     }
 
-    // ── Dynamic Re-Routing Logic (Every 15s) ──────────────────────────────
+    // ── AI Self-Healing: Mid-Mission Clinical Pivot logic (Every 30s) ──
+    if (ambulance.phase === 'IN_TRANSIT' && !this.loadingRoute) {
+      if (!ambulance.pivotTicks) ambulance.pivotTicks = 0;
+      ambulance.pivotTicks++;
+
+      if (ambulance.pivotTicks >= 60) { // 60 ticks = 30 seconds
+        const currentHospId = hospital.id;
+        
+        // Re-analyze regional grid for the specific patient modality
+        const symptoms = (patient.type || '').toUpperCase();
+        const isCardiac = symptoms.includes('HEART') || symptoms.includes('CHEST') || symptoms.includes('V-FIB');
+        const isTrauma  = symptoms.includes('ACCIDENT') || symptoms.includes('COLLISION') || symptoms.includes('FALL');
+        const isPed     = symptoms.includes('PEDIATRIC') || symptoms.includes('CHILD');
+        const isBurn    = symptoms.includes('FIRE') || symptoms.includes('BURN');
+        const prioritySpec = isCardiac ? 'CARDIAC' : (isTrauma ? 'TRAUMA' : (isPed ? 'PEDIATRIC' : (isBurn ? 'BURN' : 'GENERAL')));
+
+        const currentScoreArr = DecisionEngine.scoreHospitals(ambulance.location, prioritySpec);
+        const bestNew = currentScoreArr.sort((a,b) => parseFloat(a.currentScore) - parseFloat(b.currentScore))[0];
+        const currentHospScore = currentScoreArr.find(h => h.id === currentHospId)?.currentScore || 999;
+
+        // "Self-Healing" Pivot locked only if 20% clinical improvement detected
+        if (bestNew.id !== currentHospId && (parseFloat(bestNew.currentScore) < parseFloat(currentHospScore) * 0.8)) {
+           console.log(`📡 AI Self-Healing PIVOT: Rerouting ${ambulance.id} from ${hospital.name} to ${bestNew.name}...`);
+           
+           // Perform mid-mission state pivot
+           state.hospital = {
+              ...bestNew,
+              distanceStr: `${bestNew.dist} km`,
+              selectionReason: `AI Self-Healing: Dynamic capacity shift identified better clinical outcome at ${bestNew.name}.`
+           };
+           state.hospitals = currentScoreArr; 
+           this._loadHospitalRoute(ambulance.location, bestNew.location, dispatchedAmbulanceId, patient.severity);
+           
+           if (this.io) {
+             this.io.emit('SYSTEM_PIVOT', {
+                reason: `Dynamic Capacity Shift: Specialty affinity at ${bestNew.name} is now superior.`,
+                oldHospId: currentHospId,
+                newHospId: bestNew.id
+             });
+           }
+        }
+        ambulance.pivotTicks = 0;
+      }
+    }
+
+    // ── Capacity Jitter Logic (Every 10s simulation of urban variance) ──
+    this.capacityJitterTicks++;
+    if (this.capacityJitterTicks >= 20) {
+       DecisionEngine.hospitals.forEach(h => {
+          const shift = Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0;
+          h.availableBeds = Math.max(0, Math.min(h.totalBeds, h.availableBeds + shift));
+       });
+       this.capacityJitterTicks = 0;
+    }
+
+    // ── Dynamic Re-Routing Logic (Every 15s for map consistency) ──────────────
     if (ambulance.phase === 'IN_TRANSIT') {
       if (!ambulance.rerouteTicks) ambulance.rerouteTicks = 0;
       ambulance.rerouteTicks++;
