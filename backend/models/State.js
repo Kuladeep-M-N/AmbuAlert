@@ -1,7 +1,8 @@
 const INITIAL_STATE = {
-  systemStatus: "IDLE", // IDLE, ACTIVE
+  systemStatus: "IDLE", // IDLE, PENDING, ACTIVE
   patient: null, // { id, type, severity, location, status, vitals }
   ambulances: [],  // Array of fleet units { id, location, eta, status, cost, distanceStr }
+  pendingAmbulanceOffers: [], // Candidates for manual acceptance
   dispatchedAmbulanceId: null, // ID of the actively dispatched ambulance
   hospital: null, // { id, name, location, spec, selectionReason, prepStatus }
   routes: [], // { id, coordinates, color, etaMinutes, distanceStr, trafficString, isOptimal }

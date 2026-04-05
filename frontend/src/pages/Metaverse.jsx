@@ -7,10 +7,14 @@ export default function Metaverse() {
   const [sysState, setSysState] = useState(null);
 
   useEffect(() => {
+    socket.connect();
     socket.on('system_update', (data) => {
       setSysState(data);
     });
-    return () => socket.off('system_update');
+    return () => {
+      socket.off('system_update');
+      socket.disconnect();
+    };
   }, []);
 
   return (
@@ -38,14 +42,14 @@ export default function Metaverse() {
         
         {/* Abstract Overlays manually overlaid over canvas */}
         <div className="absolute top-4 left-4 p-4 rounded-xl bg-white/90 backdrop-blur-md border border-gray-200 text-[10px] text-gray-500 font-bold tracking-widest uppercase pointer-events-none shadow-sm">
-          <p className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1">
             <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></div>
             WebGL Engine: Active
-          </p>
-          <p className="flex items-center gap-2">
+          </div>
+          <div className="flex items-center gap-2">
             <div className={`w-1.5 h-1.5 ${sysState?.systemStatus === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'} rounded-full`}></div>
             Simulation Style: {sysState?.systemStatus === 'ACTIVE' ? 'LIVE DATA' : 'STANDBY'}
-          </p>
+          </div>
         </div>
       </div>
     </div>

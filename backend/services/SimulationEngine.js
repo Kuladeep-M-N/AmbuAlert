@@ -18,8 +18,8 @@ const Graph = require('../models/Graph');
 
 const STEP     = 0.0005;   // ~55 m per tick at 500 ms interval (≈ 40 km/h sim speed)
 const SNAP_THR = 0.0002;   // distance threshold to advance to next waypoint
-const PAT_THR  = 0.12;     // km — reach-patient radius
-const HOSP_THR = 0.25;     // km — reach-hospital radius
+const PAT_THR  = 0.05;     // km — reach-patient radius
+const HOSP_THR = 0.05;     // km — reach-hospital radius
 const PICKUP_TICKS = 6;    // 3 seconds pause for patient pickup (6 × 500 ms)
 
 class SimulationEngine {
@@ -43,27 +43,6 @@ class SimulationEngine {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  _densifyRoute(coords) {
-    if (!coords || coords.length < 2) return coords;
-    const dense = [];
-    for (let i = 0; i < coords.length - 1; i++) {
-      const start = coords[i];
-      const end = coords[i + 1];
-      dense.push(start);
-      // Rough distance check (degrees-based is fine for densification)
-      const dist = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
-      if (dist > 0.001) { // ~100m threshold
-        const steps = Math.ceil(dist / 0.0005); // Subdivide every ~50m
-        for (let s = 1; s < steps; s++) {
-          const r = s / steps;
-          dense.push([start[0] + (end[0] - start[0]) * r, start[1] + (end[1] - start[1]) * r]);
-        }
-      }
-    }
-    dense.push(coords[coords.length - 1]);
-    return dense;
-  }
-
   _writeAmb(ambulance, dispatchedId) {
     // Directly mutate the ambulances array in State so changes are immediately visible
     const state = State.getState();
@@ -78,8 +57,8 @@ class SimulationEngine {
     Graph.findMultipleRoutes(patLoc, hospLoc)
       .then(newRoutes => {
         if (newRoutes && newRoutes.length > 0) {
-          // Densify the optimal route for smooth movement
-          newRoutes[0].coordinates = this._densifyRoute(newRoutes[0].coordinates);
+          // Use shared utility for smooth movement
+          newRoutes[0].coordinates = Graph.densifyRoute(newRoutes[0].coordinates);
           
           const state = State.getState();
           state.routes = newRoutes;

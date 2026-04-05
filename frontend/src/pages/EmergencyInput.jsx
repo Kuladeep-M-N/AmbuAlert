@@ -9,12 +9,12 @@ export default function EmergencyInput() {
   const triggerEmergency = async (payload) => {
     setLoading(true);
     try {
-      await fetch('http://localhost:3000/api/emergency', {
+      await fetch('/api/emergency', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      setTimeout(() => navigate('/app/decision'), 600);
+      setTimeout(() => navigate('/app/live'), 600);
     } catch (e) {
       console.error(e);
       setLoading(false);

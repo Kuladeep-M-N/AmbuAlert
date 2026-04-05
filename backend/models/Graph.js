@@ -108,8 +108,29 @@ class Graph {
        });
   }
 
-  randomizeTraffic() {
-      // Periodic logic handled implicitly in SimulationEngine now re-triggering this routing query
+  densifyRoute(coords) {
+    if (!coords || coords.length < 2) return coords;
+    const dense = [];
+    for (let i = 0; i < coords.length - 1; i++) {
+        const start = coords[i];
+        const end = coords[i + 1];
+        dense.push(start);
+        
+        // Rough distance in degrees (approx ~111km per degree)
+        const dx = end[0] - start[0];
+        const dy = end[1] - start[1];
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist > 0.0005) { // Roughly ~55m threshold
+            const steps = Math.ceil(dist / 0.0004); // Subdivide every ~45m
+            for (let s = 1; s < steps; s++) {
+                const r = s / steps;
+                dense.push([start[0] + dx*r, start[1] + dy*r]);
+            }
+        }
+    }
+    dense.push(coords[coords.length - 1]);
+    return dense;
   }
 }
 

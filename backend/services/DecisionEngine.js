@@ -7,6 +7,7 @@ const State = require('../models/State');
  * 1. Fleet of 3 ambulances (spread across Bengaluru)
  * 2. Cost Calculation (Distance + Traffic)
  * 3. Nearest selection based on OSRM road geometry
+ * 4. Multi-Hospital Strategy (Specialty matching)
  */
 class DecisionEngine {
   constructor() {
@@ -77,15 +78,21 @@ class DecisionEngine {
     const isBurn     = symptoms.includes('FIRE') || symptoms.includes('BURN') || symptoms.includes('EXPLOSION');
     
     const prioritySpec = isCardiac ? 'CARDIAC' : (isTrauma ? 'TRAUMA' : (isPed ? 'PEDIATRIC' : (isBurn ? 'BURN' : 'GENERAL')));
-
+    
     // 2. Initial Patient Digital Twin — Randomized City Point
     const lat = 12.9300 + (Math.random() * 0.02);
     const lng = 77.5650 + (Math.random() * 0.02);
 
+    // Nuanced severity assignment
+    let severity = (data.impact > 30 || data.no_movement || isCardiac || isBurn) ? 'CRITICAL' : 'ROUTINE';
+    if (data.type === 'Accident' || data.impact > 20) {
+      if (severity !== 'CRITICAL') severity = 'MAJOR';
+    }
+
     const patient = {
       id: 'PAT-' + Math.floor(Math.random() * 900 + 100),
       type: data.type || 'Medical Emergency',
-      severity: data.impact > 30 || data.no_movement || isCardiac || isBurn ? 'CRITICAL' : 'STABLE',
+      severity,
       location: [lat, lng], 
       vitals: { 
         heartRate: isCardiac ? 145 : 85, 
@@ -123,43 +130,33 @@ class DecisionEngine {
       bestHospital.availableBeds -= 1;
     }
 
-    // 5. Nearest Ambulance Selection
-    let bestAmbulance = null;
-    let minAmbCost = Infinity;
-
+    // 5. Fleet Analysis
     const scoredFleet = this.fleet.map(amb => {
       const distKm = Graph.calcDistance(amb.location[0], amb.location[1], patient.location[0], patient.location[1]);
       const traffic = ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)];
       const cost = distKm + (traffic === 'High' ? 1.5 : (traffic === 'Medium' ? 0.6 : 0.15));
-
-      if (cost < minAmbCost) {
-        minAmbCost = cost;
-        bestAmbulance = amb;
-      }
       return { ...amb, distanceToPatient: distKm.toFixed(2), traffic, cost: cost.toFixed(3) };
     });
 
-    // 6. Build Final Response Context
-    const routes = await Graph.findMultipleRoutes(bestAmbulance.location, patient.location);
-    if (routes && routes.length > 0) {
-      routes[0].coordinates = this._densifyRoute(routes[0].coordinates);
-    }
+    // Multi-Unit Broadcast Logic (Top 3 candidate units)
+    const candidates = scoredFleet
+      .sort((a,b) => parseFloat(a.cost) - parseFloat(b.cost))
+      .slice(0, 3);
 
     const newState = {
-      systemStatus: 'ACTIVE',
+      systemStatus: 'PENDING',
       patient,
       ambulances: scoredFleet,
-      dispatchedAmbulanceId: bestAmbulance.id,
+      pendingAmbulanceOffers: candidates,
       hospitals: scoredHospitals, 
       hospital: {
         ...bestHospital,
         distanceStr: `${scoredHospitals.find(h => h.id === bestHospital.id).dist} km`,
         selectionReason: `AI Strategy: Clinical ${bestHospital.spec} facility matched to ${prioritySpec} emergency.`
       },
-      routes
+      routes: [] // Routes calculated upon acceptance
     };
 
-    // Propagate state
     State.setState(newState);
     return newState;
   }
