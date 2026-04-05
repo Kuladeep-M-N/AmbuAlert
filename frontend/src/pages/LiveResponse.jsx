@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { socket } from '../socket';
+import { useSocket } from '../context/SocketContext';
 import {
   AlertTriangle, Clock, HeartPulse, LocateFixed,
-  Radio, Zap, CheckCircle, Activity
+  Radio, Zap, CheckCircle, Activity, Heart, Building2, MoveUpRight, ShieldCheck
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -203,25 +203,24 @@ const SmoothMarker = ({ position, icon, children, duration = 500 }) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LiveResponse() {
-  const [sysState, setSysState]       = useState(null);
+  const { sysState, socket } = useSocket();
+  // We'll still manage local scanner state, but use global sysState
   const [scanning, setScanning]       = useState(false);
   const [scanStep, setScanStep]       = useState(0);  // 0=off 1=scanning 2=found
   const prevStatus = useRef(null);
 
   useEffect(() => {
-    socket.on('system_update', (data) => {
-      if (prevStatus.current !== 'ACTIVE' && data.systemStatus === 'ACTIVE') {
-        // Uber-style: quick scan animation then "found" state
-        setScanning(true);
-        setScanStep(1);
-        setTimeout(() => setScanStep(2), 1800);
-        setTimeout(() => { setScanning(false); setScanStep(0); }, 4000);
-      }
-      prevStatus.current = data.systemStatus;
-      setSysState(data);
-    });
-    return () => socket.off('system_update');
-  }, []);
+    if (!sysState) return;
+    
+    if (prevStatus.current !== 'ACTIVE' && sysState.systemStatus === 'ACTIVE') {
+      // Uber-style: quick scan animation then "found" state
+      setScanning(true);
+      setScanStep(1);
+      setTimeout(() => setScanStep(2), 1800);
+      setTimeout(() => { setScanning(false); setScanStep(0); }, 4000);
+    }
+    prevStatus.current = sysState.systemStatus;
+  }, [sysState]);
 
   // ── IDLE state ──────────────────────────────────────────────────────────────
   if (!sysState || sysState.systemStatus !== 'ACTIVE') {

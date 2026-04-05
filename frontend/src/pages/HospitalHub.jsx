@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
+import { useSocket } from '../context/SocketContext';
 import { useHospital } from '../context/HospitalContext';
 import { 
   Building2, 
@@ -16,27 +16,21 @@ import {
   Trash2
 } from 'lucide-react';
 
-const socket = io('http://localhost:3000');
-
 const HospitalHub = () => {
-  const [sysState, setSysState] = useState(null);
+  const { sysState, socket } = useSocket();
   const { hospitals, admittedPatients, admitPatient, resetSystem } = useHospital();
   const hospitalProcessedRef = useRef(new Set()); // Prevents double admission in the same session
 
   useEffect(() => {
-    socket.on('system_update', (state) => {
-      setSysState(state);
-      
-      // Auto-Admission Logic
-      const dispatched = state.ambulances?.find(a => a.id === state.dispatchedAmbulanceId);
-      if (dispatched?.status === 'ARRIVED' && state.patient && !hospitalProcessedRef.current.has(state.patient.id)) {
-        admitPatient(state.patient, state.hospital.id);
-        hospitalProcessedRef.current.add(state.patient.id);
-      }
-    });
-
-    return () => socket.off('system_update');
-  }, [admitPatient]);
+    if (!sysState) return;
+    
+    // Auto-Admission Logic
+    const dispatched = sysState.ambulances?.find(a => a.id === sysState.dispatchedAmbulanceId);
+    if (dispatched?.status === 'ARRIVED' && sysState.patient && !hospitalProcessedRef.current.has(sysState.patient.id)) {
+      admitPatient(sysState.patient, sysState.hospital.id);
+      hospitalProcessedRef.current.add(sysState.patient.id);
+    }
+  }, [sysState, admitPatient]);
 
   if (!sysState) {
     return (
