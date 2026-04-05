@@ -18,7 +18,7 @@ const Sidebar = ({ isConnected, onReset }) => {
   const filteredLinks = allNavLinks.filter(link => hasAccess(link.id));
 
   return (
-    <nav className="w-64 bg-gray-100 border-r border-gray-200 p-4 flex flex-col gap-6 h-screen sticky top-0">
+    <nav className="w-64 bg-gray-100 border-r border-gray-200 p-4 flex flex-col gap-6 h-full">
       <Link to="/" className="flex items-center gap-3 px-2 hover:opacity-80 transition-opacity">
         <Activity className="h-8 w-8 text-cyan-600" />
         <div>

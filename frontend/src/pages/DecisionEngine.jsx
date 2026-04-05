@@ -12,7 +12,7 @@ export default function DecisionEngine() {
     fetch('http://localhost:3000/api/decision', { method: 'POST' })
       .then(res => res.json())
       .then(d => {
-        if(d.error) {
+        if (d.error || (!d.dispatchedAmbulance && !d.ambulance)) {
           navigate('/');
         } else {
           setData(d);
@@ -43,7 +43,7 @@ export default function DecisionEngine() {
   const steps = [
     { label: "Receiving Telemetry", icon: Network, isActive: step >= 0 },
     { label: `Classifying Severity: ${data.patient.severity}`, icon: BrainCircuit, isActive: step >= 1, isCritical: data.patient.severity === 'CRITICAL' },
-    { label: `Assigning Ambulance: ${data.ambulance.id}`, icon: Cpu, isActive: step >= 2 },
+    { label: `Assigning Ambulance: ${(data.dispatchedAmbulance || data.ambulance)?.id ?? 'Best Unit'}`, icon: Cpu, isActive: step >= 2 },
     { label: `Targeting Hospital: ${data.hospital.name}`, icon: CheckCircle, isActive: step >= 3 },
   ];
 

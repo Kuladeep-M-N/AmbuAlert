@@ -33,34 +33,34 @@ export default function EmergencyInput() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h1 className="text-3xl font-bold mb-8 flex items-center gap-3 text-gray-800">
-        <Activity className="h-8 w-8 text-cyan-600" /> 
+    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col">
+      <h1 className="text-2xl font-bold mb-4 flex items-center gap-3 text-gray-800">
+        <Activity className="h-6 w-6 text-cyan-600" /> 
         Incident Injection
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
         
         {/* Manual Input */}
-        <div className="card shadow-md">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Manual Input Form</h2>
-          <form onSubmit={submitManual} className="flex flex-col gap-4">
+        <div className="card shadow-md flex flex-col">
+          <h2 className="text-lg font-bold mb-3 text-gray-800 text-center">Manual Entry</h2>
+          <form onSubmit={submitManual} className="flex flex-col gap-3">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Symptoms / Claimed Incident</label>
               <input 
                 name="symptoms"
                 required
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all" 
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm text-gray-900 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all" 
                 placeholder="e.g. Chest pain, faint"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Patient Age</label>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Patient Age</label>
               <input 
                 name="age"
                 type="number"
                 required
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all" 
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm text-gray-900 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all" 
                 placeholder="e.g. 54"
               />
             </div>
@@ -71,46 +71,46 @@ export default function EmergencyInput() {
         </div>
 
         {/* Smart Triggers */}
-        <div className="flex flex-col gap-4">
-          <div className="card h-full flex flex-col justify-center gap-4 bg-gray-50 border-gray-200">
-            <h2 className="text-xl font-bold mb-2 text-gray-700">Automated AI Triggers</h2>
+        <div className="flex flex-col">
+          <div className="card h-full flex flex-col justify-center gap-2 bg-gray-50 border-gray-200 p-4">
+            <h2 className="text-lg font-bold mb-1 text-gray-700 text-center">AI Automated Triggers</h2>
             
             <button 
               onClick={() => triggerEmergency({ type: 'Heart Attack', impact: 0, no_movement: false })}
-              className="btn bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-gray-200 shadow-sm flex items-center gap-4 text-left transition-all group"
+              className="btn bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-gray-200 shadow-sm flex items-center gap-3 p-3 text-left transition-all group"
             >
-               <div className="p-2 bg-red-50 rounded-lg text-red-500 group-hover:scale-110 transition-transform">
-                 <Watch className="h-6 w-6"/>
+               <div className="p-1.5 bg-red-50 rounded-lg text-red-500 group-hover:scale-110 transition-transform">
+                 <Watch className="h-5 w-5"/>
                </div>
                <div>
-                  <div className="font-bold text-gray-800">Smartwatch Sync: V-Fib</div>
-                  <div className="text-xs text-gray-500 font-medium">Detect irregular heartbeat patterns</div>
+                  <div className="font-bold text-sm text-gray-800">Smartwatch Sync: V-Fib</div>
+                  <div className="text-[10px] text-gray-500 font-medium">Detect irregular heartbeat patterns</div>
                </div>
             </button>
 
             <button 
               onClick={() => triggerEmergency({ type: 'Accident', impact: 45, no_movement: true })}
-              className="btn bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 border border-gray-200 shadow-sm flex items-center gap-4 text-left transition-all group"
+              className="btn bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 border border-gray-200 shadow-sm flex items-center gap-3 p-3 text-left transition-all group"
             >
-               <div className="p-2 bg-orange-50 rounded-lg text-orange-500 group-hover:scale-110 transition-transform">
-                 <Car className="h-6 w-6"/>
+               <div className="p-1.5 bg-orange-50 rounded-lg text-orange-500 group-hover:scale-110 transition-transform">
+                 <Car className="h-5 w-5"/>
                </div>
                <div>
-                  <div className="font-bold text-gray-800">Vehicle Telemetry: Collision</div>
-                  <div className="text-xs text-gray-500 font-medium">High-impact force detected</div>
+                  <div className="font-bold text-sm text-gray-800">Vehicle Telemetry: Collision</div>
+                  <div className="text-[10px] text-gray-500 font-medium">High-impact force detected</div>
                </div>
             </button>
 
             <button 
               onClick={() => triggerEmergency({ type: 'Stroke', impact: 0, no_movement: false })}
-              className="btn bg-white hover:bg-cyan-50 hover:text-cyan-600 hover:border-cyan-200 border border-gray-200 shadow-sm flex items-center gap-4 text-left transition-all group"
+              className="btn bg-white hover:bg-cyan-50 hover:text-cyan-600 hover:border-cyan-200 border border-gray-200 shadow-sm flex items-center gap-3 p-3 text-left transition-all group"
             >
-               <div className="p-2 bg-cyan-50 rounded-lg text-cyan-500 group-hover:scale-110 transition-transform">
-                 <HeartPulse className="h-6 w-6"/>
+               <div className="p-1.5 bg-cyan-50 rounded-lg text-cyan-500 group-hover:scale-110 transition-transform">
+                 <HeartPulse className="h-5 w-5"/>
                </div>
                <div>
-                  <div className="font-bold text-gray-800">App Panic Button</div>
-                  <div className="text-xs text-gray-500 font-medium">Immediate patient distress signal</div>
+                  <div className="font-bold text-sm text-gray-800">App Panic Button</div>
+                  <div className="text-[10px] text-gray-500 font-medium">Immediate patient distress signal</div>
                </div>
             </button>
 

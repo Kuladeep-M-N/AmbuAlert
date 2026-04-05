@@ -2,10 +2,16 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   background-color: #f9fafb; /* Gray-50: Clean, hospital background */
   color: #1f2937;           /* Gray-800: Professional dark text */
-  margin: 0;
   font-family: 'Inter', system-ui, sans-serif;
 }
 
@@ -52,126 +58,6 @@ body {
   border: 1px solid rgba(220, 38, 38, 0.3) !important;
 }
 
-<<<<<<< HEAD
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-20px); }
-}
-
-@keyframes float-slow {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-30px); }
-}
-
-@keyframes glow-pulse {
-  0%, 100% { 
-    box-shadow: 0 0 20px rgba(14, 165, 233, 0.5),
-                0 0 40px rgba(14, 165, 233, 0.3);
-  }
-  50% { 
-    box-shadow: 0 0 30px rgba(14, 165, 233, 0.7),
-                0 0 60px rgba(14, 165, 233, 0.4);
-  }
-}
-
-@keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
-}
-
-@keyframes ripple {
-  0% {
-    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(14, 165, 233, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0);
-  }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-float-slow {
-  animation: float-slow 8s ease-in-out infinite;
-}
-
-.animate-glow-pulse {
-  animation: glow-pulse 2s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    #f8fafc 0%,
-    #e2e8f0 20%,
-    #f8fafc 40%
-  );
-  background-size: 1000px 100%;
-  animation: shimmer 2s infinite;
-}
-
-.animate-ripple {
-  animation: ripple 1.2s infinite;
-}
-
-@keyframes float-subtle {
-  0%, 100% { transform: translateY(0px) translateX(0px); }
-  25% { transform: translateY(-15px) translateX(10px); }
-  50% { transform: translateY(-25px) translateX(-5px); }
-  75% { transform: translateY(-10px) translateX(15px); }
-}
-
-@keyframes grid-shift {
-  0% { background-position: 0 0; }
-  100% { background-position: 40px 40px; }
-}
-
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 0.05; }
-  50% { opacity: 0.15; }
-}
-
-@keyframes gradient-flow {
-  0% { background-position: 0% center; }
-  100% { background-position: 100% center; }
-}
-
-@keyframes light-ray {
-  0% { transform: translateX(-100%) skewX(-20deg); opacity: 0; }
-  50% { opacity: 0.3; }
-  100% { transform: translateX(100%) skewX(-20deg); opacity: 0; }
-}
-
-.animate-float-subtle {
-  animation: float-subtle 8s ease-in-out infinite;
-}
-
-.animate-grid-shift {
-  animation: grid-shift 20s linear infinite;
-}
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 6s ease-in-out infinite;
-}
-
-.animate-gradient-flow {
-  background: linear-gradient(
-    90deg,
-    rgba(14, 165, 233, 0.08),
-    rgba(16, 185, 129, 0.08),
-    rgba(14, 165, 233, 0.08)
-  );
-  background-size: 200% 100%;
-  animation: gradient-flow 8s ease-in-out infinite;
-}
-
-.animate-light-ray {
-  animation: light-ray 4s ease-in-out infinite;
-=======
 /* Force hardware accelerated smoothly tweened map movement for the Ambulance (Google Maps feel) */
 .leaflet-marker-icon.custom-icon {
   transition: transform 0.5s linear !important;
@@ -179,12 +65,8 @@ body {
 
 /* Leaflet Polyline Routing Animations */
 @keyframes routeMoveDash {
-  from {
-    stroke-dashoffset: 24;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
 }
 
 .route-optimal {
@@ -200,7 +82,6 @@ body {
 .route-traffic {
   opacity: 0.4 !important;
   stroke-dasharray: 4, 8;
->>>>>>> 94b7abe3abd775e4231df03ebe20ed9779a931b0
 }
 
 @keyframes float {
@@ -230,43 +111,22 @@ body {
 }
 
 @keyframes ripple {
-  0% {
-    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(14, 165, 233, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-float-slow {
-  animation: float-slow 8s ease-in-out infinite;
-}
-
-.animate-glow-pulse {
-  animation: glow-pulse 2s ease-in-out infinite;
-}
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
+.animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
 
 .animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    #f8fafc 0%,
-    #e2e8f0 20%,
-    #f8fafc 40%
-  );
+  background: linear-gradient(90deg, #f8fafc 0%, #e2e8f0 20%, #f8fafc 40%);
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
 }
 
-.animate-ripple {
-  animation: ripple 1.2s infinite;
-}
+.animate-ripple { animation: ripple 1.2s infinite; }
 
 @keyframes float-subtle {
   0%, 100% { transform: translateY(0px) translateX(0px); }
@@ -296,17 +156,9 @@ body {
   100% { transform: translateX(100%) skewX(-20deg); opacity: 0; }
 }
 
-.animate-float-subtle {
-  animation: float-subtle 8s ease-in-out infinite;
-}
-
-.animate-grid-shift {
-  animation: grid-shift 20s linear infinite;
-}
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 6s ease-in-out infinite;
-}
+.animate-float-subtle { animation: float-subtle 8s ease-in-out infinite; }
+.animate-grid-shift { animation: grid-shift 20s linear infinite; }
+.animate-pulse-subtle { animation: pulse-subtle 6s ease-in-out infinite; }
 
 .animate-gradient-flow {
   background: linear-gradient(
@@ -319,6 +171,4 @@ body {
   animation: gradient-flow 8s ease-in-out infinite;
 }
 
-.animate-light-ray {
-  animation: light-ray 4s ease-in-out infinite;
-}
+.animate-light-ray { animation: light-ray 4s ease-in-out infinite; }
