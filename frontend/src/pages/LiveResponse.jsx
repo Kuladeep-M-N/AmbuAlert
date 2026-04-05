@@ -295,7 +295,7 @@ export default function LiveResponse() {
 
     return (
       <div className="flex flex-col h-full items-center justify-center p-6 lg:p-12 animate-in zoom-in-95 duration-500">
-        <div className="w-full max-w-5xl bg-white rounded-[2.5rem] shadow-[0_0_80px_rgba(0,0,0,0.1)] border border-gray-100 overflow-hidden flex flex-col lg:row">
+        <div className="w-full max-w-5xl bg-white rounded-[2.5rem] shadow-[0_0_80px_rgba(0,0,0,0.1)] border border-gray-100 overflow-hidden flex flex-col lg:flex-row">
           <div className={`lg:w-1/2 p-10 ${config.color} text-white flex flex-col justify-between transition-colors duration-500`}>
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -403,10 +403,10 @@ export default function LiveResponse() {
             {/* AI-Powered A* Routing Visualization with Premium Styling */}
             {routes?.map((route, i) => {
               const isBest = route.isOptimal;
-              const color = isBest ? '#2E8B57' : (i === 1 ? '#E6B800' : '#D9534F');
-              const weight = isBest ? 5 : 4;
-              const opacity = isBest ? 0.8 : 0.6;
-              const dashArray = isBest ? null : '6, 8';
+              const color = isBest ? '#00E676' : (i === 1 ? '#FFD700' : '#FF3333');
+              const weight = isBest ? 6 : 5;
+              const opacity = isBest ? 1.0 : 1.0;
+              const dashArray = isBest ? null : '12, 12';
               
               return (
                 <React.Fragment key={route.id || i}>
@@ -446,8 +446,8 @@ export default function LiveResponse() {
               return <MarkerComp key={amb.id} position={amb.location} icon={icon} />;
             })}
 
-            {patient.status === 'AWAITING_AMBULANCE' && (
-              <Marker position={patient.location} icon={patIcon} />
+            {patient.status !== 'DELIVERED' && (
+              <SmoothMarker position={patient.location} icon={patIcon} duration={480} />
             )}
 
             {/* Clinical Health Grid */}

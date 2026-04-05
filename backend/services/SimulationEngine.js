@@ -198,6 +198,9 @@ class SimulationEngine {
 
       // Move toward hospital
       ambulance = this._moveAlongRoute(ambulance, routes);
+      
+      // Update patient position so they logically travel with the ambulance
+      patient.location = [...ambulance.location];
 
       const distHosp = Graph.calcDistance(
         ambulance.location[0], ambulance.location[1],
