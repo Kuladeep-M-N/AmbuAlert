@@ -1,0 +1,101 @@
+{
+  "city": "Bangalore",
+  "centerLat": 13.0,
+  "centerLng": 77.6,
+  "hospitals": [
+    {
+      "id": "HOSP-001",
+      "name": "BMS Trauma Center",
+      "lat": 13.010,
+      "lng": 77.610,
+      "height": 45,
+      "beds": 250,
+      "specialists": ["General", "Cardiac", "Emergency"],
+      "color": "#0ea5e9"
+    },
+    {
+      "id": "HOSP-002",
+      "name": "City General Hospital",
+      "lat": 12.990,
+      "lng": 77.590,
+      "height": 40,
+      "beds": 180,
+      "specialists": ["Trauma", "Emergency"],
+      "color": "#0ea5e9"
+    }
+  ],
+  "buildings": [
+    {
+      "id": "building_001",
+      "name": "Tech Park Alpha",
+      "lat": 13.003,
+      "lng": 77.595,
+      "height": 60,
+      "type": "commercial",
+      "color": "#64748b"
+    },
+    {
+      "id": "building_002",
+      "name": "Shopping Mall",
+      "lat": 12.995,
+      "lng": 77.605,
+      "height": 25,
+      "type": "commercial",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "building_003",
+      "name": "Residential Tower A",
+      "lat": 13.005,
+      "lng": 77.615,
+      "height": 50,
+      "type": "residential",
+      "color": "#cbd5e1"
+    },
+    {
+      "id": "building_004",
+      "name": "Residential Tower B",
+      "lat": 13.007,
+      "lng": 77.617,
+      "height": 55,
+      "type": "residential",
+      "color": "#cbd5e1"
+    },
+    {
+      "id": "building_005",
+      "name": "Central Library",
+      "lat": 13.000,
+      "lng": 77.600,
+      "height": 20,
+      "type": "public",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "building_006",
+      "name": "Metro Station",
+      "lat": 12.992,
+      "lng": 77.602,
+      "height": 15,
+      "type": "transit",
+      "color": "#cbd5e1"
+    },
+    {
+      "id": "building_007",
+      "name": "Corporate HQ",
+      "lat": 13.015,
+      "lng": 77.590,
+      "height": 80,
+      "type": "commercial",
+      "color": "#475569"
+    },
+    {
+      "id": "building_008",
+      "name": "Apartment Complex",
+      "lat": 12.985,
+      "lng": 77.610,
+      "height": 35,
+      "type": "residential",
+      "color": "#cbd5e1"
+    }
+  ]
+}

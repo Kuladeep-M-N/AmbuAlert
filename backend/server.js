@@ -36,6 +36,16 @@ io.on('connection', (socket) => {
     io.emit('system_update', State.getState());
   });
 
+  socket.on('metaverse_enter', (data) => {
+    const s = State.getState();
+    const incidents = (s.patient && s.patient.location) ? [s.patient] : [];
+    socket.emit('metaverse_scene_load', {
+      ambulances: s.ambulances || [],
+      incidents: incidents,
+      hospitals: s.hospital ? [s.hospital] : []
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
@@ -43,6 +53,17 @@ io.on('connection', (socket) => {
 
 SimulationEngine.setIo(io);
 SimulationEngine.start();
+
+// Metaverse 30FPS stream
+setInterval(() => {
+  const s = State.getState();
+  if (!s || !s.ambulances) return;
+  const incidents = (s.patient && s.patient.location && s.patient.status !== 'DELIVERED') ? [s.patient] : [];
+  io.emit('metaverse_position_update', {
+    ambulances: s.ambulances,
+    incidents: incidents
+  });
+}, 33);
 
 const PORT = 3000;
 server.listen(PORT, () => {

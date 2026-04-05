@@ -16,7 +16,7 @@ export const RoleProvider = ({ children }) => {
 
   const roles = {
     admin: { label: 'Administrator', access: ['dashboard', 'input', 'decision', 'live', 'hospital', 'metaverse'] },
-    paramedic: { label: 'Field Responder', access: ['dashboard', 'input', 'decision', 'live', 'hospital'] },
+    paramedic: { label: 'Field Responder', access: ['dashboard', 'input', 'decision', 'live', 'hospital', 'metaverse'] },
     doctor: { label: 'ER Specialist', access: ['hospital'] },
     public: { label: 'Citizen Portal', access: ['dashboard', 'live'] },
   };
