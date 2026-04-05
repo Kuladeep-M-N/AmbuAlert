@@ -18,8 +18,8 @@ const Graph = require('../models/Graph');
 
 const STEP     = 0.0005;   // ~55 m per tick at 500 ms interval (≈ 40 km/h sim speed)
 const SNAP_THR = 0.0002;   // distance threshold to advance to next waypoint
-const PAT_THR  = 0.12;     // km — reach-patient radius
-const HOSP_THR = 0.25;     // km — reach-hospital radius
+const PAT_THR  = 0.05;     // km — reach-patient radius
+const HOSP_THR = 0.05;     // km — reach-hospital radius
 const PICKUP_TICKS = 6;    // 3 seconds pause for patient pickup (6 × 500 ms)
 
 class SimulationEngine {
@@ -43,27 +43,6 @@ class SimulationEngine {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  _densifyRoute(coords) {
-    if (!coords || coords.length < 2) return coords;
-    const dense = [];
-    for (let i = 0; i < coords.length - 1; i++) {
-      const start = coords[i];
-      const end = coords[i + 1];
-      dense.push(start);
-      // Rough distance check (degrees-based is fine for densification)
-      const dist = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
-      if (dist > 0.001) { // ~100m threshold
-        const steps = Math.ceil(dist / 0.0005); // Subdivide every ~50m
-        for (let s = 1; s < steps; s++) {
-          const r = s / steps;
-          dense.push([start[0] + (end[0] - start[0]) * r, start[1] + (end[1] - start[1]) * r]);
-        }
-      }
-    }
-    dense.push(coords[coords.length - 1]);
-    return dense;
-  }
-
   _writeAmb(ambulance, dispatchedId) {
     // Directly mutate the ambulances array in State so changes are immediately visible
     const state = State.getState();
@@ -71,15 +50,15 @@ class SimulationEngine {
     if (i !== -1) state.ambulances[i] = { ...state.ambulances[i], ...ambulance };
   }
 
-  _loadHospitalRoute(patLoc, hospLoc, dispatchedId) {
+  _loadHospitalRoute(patLoc, hospLoc, dispatchedId, severity = 'ROUTINE') {
     if (this.loadingRoute) return;
     this.loadingRoute = true;
 
-    Graph.findMultipleRoutes(patLoc, hospLoc)
+    Graph.findMultipleRoutes(patLoc, hospLoc, severity)
       .then(newRoutes => {
         if (newRoutes && newRoutes.length > 0) {
-          // Densify the optimal route for smooth movement
-          newRoutes[0].coordinates = this._densifyRoute(newRoutes[0].coordinates);
+          // Use shared utility for smooth movement
+          newRoutes[0].coordinates = Graph.densifyRoute(newRoutes[0].coordinates);
           
           const state = State.getState();
           state.routes = newRoutes;
@@ -158,6 +137,8 @@ class SimulationEngine {
 
     if (!state.ambulances || !dispatchedAmbulanceId) return;
 
+    let lastCompletedCase = null;
+
     const ambIdx = state.ambulances.findIndex(a => a.id === dispatchedAmbulanceId);
     if (ambIdx === -1) return;
 
@@ -189,13 +170,16 @@ class SimulationEngine {
         ambulance.phase            = 'PICKUP';
         ambulance.currentTargetIdx = 0;
         this.pickupTimer           = PICKUP_TICKS;
+        // Reflect handoff to transport immediately for hospital-side intake updates.
+        patient.status             = 'IN_AMBULANCE';
 
         // Start fetching hospital route immediately (non-blocking)
-        this._loadHospitalRoute(patient.location, hospital.location, dispatchedAmbulanceId);
+        this._loadHospitalRoute(patient.location, hospital.location, dispatchedAmbulanceId, patient.severity);
       }
 
     } else if (ambulance.phase === 'PICKUP') {
       // Brief pause — ambulance stays at patient position
+      if (patient.status !== 'IN_AMBULANCE') patient.status = 'IN_AMBULANCE';
       this.pickupTimer--;
 
       if (this.pickupTimer <= 0 && !this.loadingRoute) {
@@ -224,6 +208,16 @@ class SimulationEngine {
         ambulance.status   = 'ARRIVED';
         ambulance.eta      = 0;
         patient.status     = 'DELIVERED';
+
+        lastCompletedCase = {
+          patientId: patient.id,
+          type: patient.type,
+          severity: patient.severity,
+          hospitalName: hospital.name,
+          hospitalSpec: hospital.spec,
+          ambulanceId: ambulance.id,
+          deliveredAt: new Date().toISOString()
+        };
       }
     }
 
@@ -241,8 +235,8 @@ class SimulationEngine {
       ambulance.rerouteTicks++;
       
       if (ambulance.rerouteTicks >= 30) { // 30 ticks = 15 seconds
-        console.log('🔄 AI Re-Route Triggered: Optimizing Green Corridor...');
-        this._loadHospitalRoute(ambulance.location, hospital.location, dispatchedAmbulanceId);
+        console.log(`🔄 AI Re-Route Triggered [${ambulance.id}]: Optimizing for ${patient.severity} patient...`);
+        this._loadHospitalRoute(ambulance.location, hospital.location, dispatchedAmbulanceId, patient.severity);
         ambulance.rerouteTicks = 0;
       }
     }
@@ -270,7 +264,8 @@ class SimulationEngine {
     State.setState({ 
       patient, 
       ambulances: updatedAmbs,
-      activeSignalOverrides 
+      activeSignalOverrides,
+      ...(lastCompletedCase ? { lastCompletedCase } : {})
     });
 
     if (this.io) {

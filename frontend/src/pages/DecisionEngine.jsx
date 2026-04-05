@@ -9,10 +9,10 @@ export default function DecisionEngine() {
 
   useEffect(() => {
     // Fetch current state decision
-    fetch('http://localhost:3000/api/decision', { method: 'POST' })
+    fetch('/api/decision', { method: 'POST' })
       .then(res => res.json())
       .then(d => {
-        if (d.error || (!d.dispatchedAmbulance && !d.ambulance)) {
+        if (d.error || (d.systemStatus !== 'PENDING' && !d.dispatchedAmbulance && !d.ambulance)) {
           navigate('/');
         } else {
           setData(d);
