@@ -38,87 +38,128 @@ class DecisionEngine {
     ];
 
     this.hospitals = [
-      { name: 'BMS Trauma Center', location: [12.9379, 77.5724], spec: 'Trauma' },
-      { name: 'Vani Vilas Cardiac', location: [12.9554, 77.5765], spec: 'Cardiac' },
-      { name: 'Sagar Multispecialty', location: [12.9152, 77.5934], spec: 'General' }
+      { id: 'HOSP-01', name: 'Narayana Cardiac Center', location: [12.9554, 77.5765], spec: 'CARDIAC', totalBeds: 15, availableBeds: 12, trafficFactor: 1.1 },
+      { id: 'HOSP-02', name: 'BMS Trauma Specialty', location: [12.9379, 77.5724], spec: 'TRAUMA', totalBeds: 10, availableBeds: 8, trafficFactor: 1.4 },
+      { id: 'HOSP-03', name: 'Victoria General', location: [12.9645, 77.5768], spec: 'GENERAL', totalBeds: 30, availableBeds: 24, trafficFactor: 2.1 },
+      { id: 'HOSP-04', name: 'Indira Gandhi Pediatric', location: [12.9431, 77.5855], spec: 'PEDIATRIC', totalBeds: 18, availableBeds: 15, trafficFactor: 1.2 },
+      { id: 'HOSP-05', name: 'St. Johns Burn Center', location: [12.9341, 77.6111], spec: 'BURN', totalBeds: 8, availableBeds: 6, trafficFactor: 1.3 }
     ];
   }
 
-  async processEmergency(data) {
-    console.log('🧠 Decision Engine processing incident:', data.type);
+  _densifyRoute(coords) {
+    if (!coords || coords.length < 2) return coords;
+    const dense = [];
+    for (let i = 0; i < coords.length - 1; i++) {
+        const start = coords[i];
+        const end = coords[i + 1];
+        dense.push(start);
+        const dist = Math.sqrt(Math.pow(end[0]-start[0],2) + Math.pow(end[1]-start[1],2));
+        if (dist > 0.001) {
+            const steps = Math.ceil(dist / 0.0005);
+            for (let s = 1; s < steps; s++) {
+                const r = s / steps;
+                dense.push([start[0] + (end[0]-start[0])*r, start[1] + (end[1]-start[1])*r]);
+            }
+        }
+    }
+    dense.push(coords[coords.length - 1]);
+    return dense;
+  }
 
-    // 1. Generate Victim (Patient) digital twin — RANDOMIZED ROAD POINT
-    const lat = 12.9300 + (Math.random() * 0.02); // ~2.2 km range
-    const lng = 77.5650 + (Math.random() * 0.02); // ~2.2 km range
+  async processEmergency(data) {
+    console.log('🧠 AI Multi-Hospital Dispatch triaging:', data.type);
+
+    // 1. Analyze Patient Condition + Case Classification
+    const symptoms = (data.type || '').toUpperCase();
+    const isCardiac  = symptoms.includes('HEART') || symptoms.includes('CHEST') || symptoms.includes('V-FIB');
+    const isTrauma   = symptoms.includes('ACCIDENT') || symptoms.includes('COLLISION') || symptoms.includes('FALL');
+    const isPed      = symptoms.includes('PEDIATRIC') || symptoms.includes('CHILD') || symptoms.includes('OFFSPRING');
+    const isBurn     = symptoms.includes('FIRE') || symptoms.includes('BURN') || symptoms.includes('EXPLOSION');
+    
+    const prioritySpec = isCardiac ? 'CARDIAC' : (isTrauma ? 'TRAUMA' : (isPed ? 'PEDIATRIC' : (isBurn ? 'BURN' : 'GENERAL')));
+
+    // 2. Initial Patient Digital Twin — Randomized City Point
+    const lat = 12.9300 + (Math.random() * 0.02);
+    const lng = 77.5650 + (Math.random() * 0.02);
 
     const patient = {
       id: 'PAT-' + Math.floor(Math.random() * 900 + 100),
       type: data.type || 'Medical Emergency',
-      severity: data.impact > 30 || data.no_movement ? 'CRITICAL' : 'STABLE',
+      severity: data.impact > 30 || data.no_movement || isCardiac || isBurn ? 'CRITICAL' : 'STABLE',
       location: [lat, lng], 
-      vitals: { heartRate: 110, oxygen: 94 },
+      vitals: { 
+        heartRate: isCardiac ? 145 : 85, 
+        oxygen: (isTrauma || isBurn) ? 88 : 96 
+      },
       status: 'AWAITING_AMBULANCE'
     };
 
-    // 2. Nearest Selection Logic — calculate cost for all 3 units
-    let bestAmbulance = null;
-    let minCost = Infinity;
+    // 3. AI Multi-Hospital Scoring Logic
+    let bestHospital = null;
+    let minHospScore = Infinity;
 
-    // We calculate costs synchronously using Haversine for performance,
-    // then fetch real OSRM road distance for the dispatch payload.
-    const scoredFleet = this.fleet.map(amb => {
-      const distKm = Graph.calcDistance(
-        amb.location[0], amb.location[1],
-        patient.location[0], patient.location[1]
-      );
+    const scoredHospitals = this.hospitals.map(h => {
+      const dist = Graph.calcDistance(patient.location[0], patient.location[1], h.location[0], h.location[1]);
+      const specMatch = h.spec === prioritySpec;
       
-      // Simulate real-time traffic levels
-      const trafficWeights = { Low: 1, Medium: 3, High: 8 };
-      const trafficLevels = ['Low', 'Medium', 'High'];
-      const traffic = trafficLevels[Math.floor(Math.random() * 3)];
+      let capacityPenalty = 0;
+      if (h.availableBeds <= 0) capacityPenalty = 1000;
+      else if (h.availableBeds < 3) capacityPenalty = 5;
       
-      // cost = distance + traffic_penalty
-      const cost = distKm + (trafficWeights[traffic] * 0.15);
-
-      if (cost < minCost) {
-        minCost = cost;
-        bestAmbulance = amb;
+      // Clinical Priority Multiplier
+      const specBonus = specMatch ? 0.6 : 3.0; // High bonus for specialization match
+      const score = (dist * 1.5) + (h.trafficFactor * specBonus) + capacityPenalty;
+      
+      if (score < minHospScore) {
+        minHospScore = score;
+        bestHospital = h;
       }
 
-      return {
-        ...amb,
-        distanceToPatient: distKm.toFixed(2),
-        traffic,
-        cost: cost.toFixed(3)
-      };
+      return { ...h, currentScore: score.toFixed(1), dist: dist.toFixed(2) };
     });
 
-    // 3. Hospital Match (Nearest to patient)
-    const matchedHospital = this.hospitals[0]; // Simple selection for demo
+    // 4. Soft Reservation Logic
+    if (bestHospital && bestHospital.availableBeds > 0) {
+      bestHospital.availableBeds -= 1;
+    }
 
-    // 4. Fetch the real shortest-path route (OSRM)
+    // 5. Nearest Ambulance Selection
+    let bestAmbulance = null;
+    let minAmbCost = Infinity;
+
+    const scoredFleet = this.fleet.map(amb => {
+      const distKm = Graph.calcDistance(amb.location[0], amb.location[1], patient.location[0], patient.location[1]);
+      const traffic = ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)];
+      const cost = distKm + (traffic === 'High' ? 1.5 : (traffic === 'Medium' ? 0.6 : 0.15));
+
+      if (cost < minAmbCost) {
+        minAmbCost = cost;
+        bestAmbulance = amb;
+      }
+      return { ...amb, distanceToPatient: distKm.toFixed(2), traffic, cost: cost.toFixed(3) };
+    });
+
+    // 6. Build Final Response Context
     const routes = await Graph.findMultipleRoutes(bestAmbulance.location, patient.location);
+    if (routes && routes.length > 0) {
+      routes[0].coordinates = this._densifyRoute(routes[0].coordinates);
+    }
 
-    // Update global state
     const newState = {
       systemStatus: 'ACTIVE',
       patient,
       ambulances: scoredFleet,
       dispatchedAmbulanceId: bestAmbulance.id,
+      hospitals: scoredHospitals, 
       hospital: {
-        ...matchedHospital,
-        distanceStr: '0.7 km',
-        selectionReason: 'Nearest regional specialized center'
+        ...bestHospital,
+        distanceStr: `${scoredHospitals.find(h => h.id === bestHospital.id).dist} km`,
+        selectionReason: `AI Strategy: Clinical ${bestHospital.spec} facility matched to ${prioritySpec} emergency.`
       },
       routes
     };
 
-    // Set first ETA
-    const finalAmbIdx = scoredFleet.findIndex(a => a.id === bestAmbulance.id);
-    if(finalAmbIdx !== -1 && routes.length > 0) {
-      scoredFleet[finalAmbIdx].eta = Math.round(routes[0].etaMinutes * 60);
-    }
-
+    // Propagate state
     State.setState(newState);
     return newState;
   }

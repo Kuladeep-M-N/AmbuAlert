@@ -43,6 +43,27 @@ class SimulationEngine {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
+  _densifyRoute(coords) {
+    if (!coords || coords.length < 2) return coords;
+    const dense = [];
+    for (let i = 0; i < coords.length - 1; i++) {
+      const start = coords[i];
+      const end = coords[i + 1];
+      dense.push(start);
+      // Rough distance check (degrees-based is fine for densification)
+      const dist = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
+      if (dist > 0.001) { // ~100m threshold
+        const steps = Math.ceil(dist / 0.0005); // Subdivide every ~50m
+        for (let s = 1; s < steps; s++) {
+          const r = s / steps;
+          dense.push([start[0] + (end[0] - start[0]) * r, start[1] + (end[1] - start[1]) * r]);
+        }
+      }
+    }
+    dense.push(coords[coords.length - 1]);
+    return dense;
+  }
+
   _writeAmb(ambulance, dispatchedId) {
     // Directly mutate the ambulances array in State so changes are immediately visible
     const state = State.getState();
@@ -57,7 +78,9 @@ class SimulationEngine {
     Graph.findMultipleRoutes(patLoc, hospLoc)
       .then(newRoutes => {
         if (newRoutes && newRoutes.length > 0) {
-          // Mutate state directly — no tick dependency
+          // Densify the optimal route for smooth movement
+          newRoutes[0].coordinates = this._densifyRoute(newRoutes[0].coordinates);
+          
           const state = State.getState();
           state.routes = newRoutes;
 
@@ -68,7 +91,6 @@ class SimulationEngine {
             state.ambulances[i].phase = 'IN_TRANSIT';
           }
 
-          // Also set patient IN_TRANSIT (might have been set already, safe to repeat)
           state.patient.status = 'IN_TRANSIT';
         }
         this.loadingRoute = false;
@@ -213,12 +235,43 @@ class SimulationEngine {
         patient.vitals.oxygen + (Math.random() - 0.2) * 2));
     }
 
-    // ── Write updated ambulance back into state array ─────────────────────
+    // ── Dynamic Re-Routing Logic (Every 15s) ──────────────────────────────
+    if (ambulance.phase === 'IN_TRANSIT') {
+      if (!ambulance.rerouteTicks) ambulance.rerouteTicks = 0;
+      ambulance.rerouteTicks++;
+      
+      if (ambulance.rerouteTicks >= 30) { // 30 ticks = 15 seconds
+        console.log('🔄 AI Re-Route Triggered: Optimizing Green Corridor...');
+        this._loadHospitalRoute(ambulance.location, hospital.location, dispatchedAmbulanceId);
+        ambulance.rerouteTicks = 0;
+      }
+    }
+
+    // ── Green Corridor: Signal Override Logic ─────────
+    const activeSignalOverrides = [];
+    const rootRoute = state.routes && state.routes[0];
+    if (rootRoute && rootRoute.signalNodes) {
+      rootRoute.signalNodes.forEach(node => {
+        const d = Graph.calcDistance(
+          ambulance.location[0], ambulance.location[1],
+          node[0], node[1]
+        );
+        if (d < 0.2) { // 200m preemption radius
+          activeSignalOverrides.push(node);
+        }
+      });
+    }
+
+    // ── Write updated state ──────────────────────────
     const updatedAmbs = state.ambulances.map(a =>
       a.id === dispatchedAmbulanceId ? ambulance : a
     );
 
-    State.setState({ patient, ambulances: updatedAmbs });
+    State.setState({ 
+      patient, 
+      ambulances: updatedAmbs,
+      activeSignalOverrides 
+    });
 
     if (this.io) {
       this.io.emit('system_update', State.getState());

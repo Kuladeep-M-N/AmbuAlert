@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard';
 import EmergencyInput from './pages/EmergencyInput';
 import DecisionEngine from './pages/DecisionEngine';
 import LiveResponse from './pages/LiveResponse';
-import Hospital from './pages/Hospital';
+import HospitalHub from './pages/HospitalHub';
 import Metaverse from './pages/Metaverse';
 
 import { useRole } from './context/RoleContext';
@@ -28,7 +28,7 @@ function App() {
          <Route path="input" element={hasAccess('input') ? <EmergencyInput /> : <Navigate to="/app" />} />
          <Route path="decision" element={hasAccess('decision') ? <DecisionEngine /> : <Navigate to="/app" />} />
          <Route path="live" element={hasAccess('live') ? <LiveResponse /> : <Navigate to="/app" />} />
-         <Route path="hospital" element={hasAccess('hospital') ? <Hospital /> : <Navigate to="/app" />} />
+         <Route path="hospital-hub" element={hasAccess('hospital') ? <HospitalHub /> : <Navigate to="/app" />} />
          <Route path="metaverse" element={hasAccess('metaverse') ? <Metaverse /> : <Navigate to="/app" />} />
       </Route>
 

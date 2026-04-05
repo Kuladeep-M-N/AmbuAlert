@@ -16,7 +16,7 @@ class Graph {
     }
     coordsStr += `;${endLoc[1]},${endLoc[0]}`;
     
-    let url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=geojson&overview=full&alternatives=false`;
+    let url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=geojson&overview=full&alternatives=false&steps=true`;
     
     try {
         let r = await fetch(url);
@@ -24,10 +24,23 @@ class Graph {
         if (data && data.routes && data.routes.length > 0) {
              let route = data.routes[0];
              let parsedCoords = route.geometry.coordinates.map(c => [c[1], c[0]]); // Lon,Lat -> Lat,Lon
+             
+             // Extract maneuver points as 'signal nodes' for Green Corridor
+             const signalNodes = [];
+             route.legs.forEach(leg => {
+               leg.steps.forEach(step => {
+                 if (step.maneuver && step.maneuver.type !== 'depart' && step.maneuver.type !== 'arrive') {
+                   // Add signal control point
+                   signalNodes.push([step.maneuver.location[1], step.maneuver.location[0]]); // [lat, lng]
+                 }
+               });
+             });
+
              return {
                  coordinates: parsedCoords,
                  distance: route.distance / 1000,
                  etaMinutes: route.duration / 60,
+                 signalNodes
              };
         }
     } catch(e) {
