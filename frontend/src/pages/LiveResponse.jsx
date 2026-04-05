@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { socket } from '../socket';
+import { useSocket } from '../context/SocketContext';
 import {
   AlertTriangle, Clock, HeartPulse, LocateFixed,
-  Radio, Zap, CheckCircle, Activity
+  Radio, Zap, CheckCircle, Activity, Heart, Building2, MoveUpRight, ShieldCheck
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -106,6 +106,30 @@ const hospIcon = new L.DivIcon({
   iconAnchor: [15, 15],
 });
 
+const signalIcon = new L.DivIcon({
+  className: '',
+  html: `
+    <div style="position:relative;width:24px;height:24px;">
+      <div style="
+        position:absolute;inset:0;
+        background:rgba(16,185,129,0.4);
+        border-radius:50%;
+        animation:ping 1s infinite;
+      "></div>
+      <div style="
+        position:absolute;inset:4px;
+        background:#10b981;
+        border:2px solid white;
+        border-radius:50%;
+        box-shadow:0 0 10px rgba(16,185,129,1);
+        display:flex;align-items:center;justify-content:center;
+        font-size:10px;color:white;
+      ">🚦</div>
+    </div>`,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
 function MapControl({ dispatched, patient, hospital }) {
   const map = useMap();
   const focused = useRef(false);
@@ -124,7 +148,7 @@ function MapControl({ dispatched, patient, hospital }) {
 
   useEffect(() => {
     if (dispatched && dispatched.status !== 'ARRIVED') {
-      map.panTo(dispatched.location, { animate: true, duration: 0.8 });
+      map.panTo(dispatched.location, { animate: true, duration: 1.0, easeLinearity: 0.25 });
     }
   }, [dispatched?.location, map]);
 
@@ -139,28 +163,64 @@ const trafficColor = {
   High:   { bg: '#fee2e2', text: '#b91c1c', border: '#fecaca' },
 };
 
+// ─── SmoothMarker Wrapper ───────────────────────────────────────────────────
+// Uses requestAnimationFrame to interpolate between socket updates for 60FPS
+const SmoothMarker = ({ position, icon, children, duration = 500 }) => {
+  const markerRef                = useRef(null);
+  const [currentPos, setCurrentPos] = useState(position);
+  const prevPosRef               = useRef(position);
+  const startTimeRef             = useRef(0);
+
+  useEffect(() => {
+    prevPosRef.current = currentPos;
+    startTimeRef.current = performance.now();
+    
+    let animId;
+    const animate = (now) => {
+      const elapsed = now - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      const lat = prevPosRef.current[0] + (position[0] - prevPosRef.current[0]) * progress;
+      const lng = prevPosRef.current[1] + (position[1] - prevPosRef.current[1]) * progress;
+      
+      const newPos = [lat, lng];
+      if (markerRef.current) markerRef.current.setLatLng(newPos);
+      setCurrentPos(newPos);
+
+      if (progress < 1) animId = requestAnimationFrame(animate);
+    };
+    animId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animId);
+  }, [position, duration]);
+
+  return (
+    <Marker ref={markerRef} position={currentPos} icon={icon} autoPan={false}>
+      {children}
+    </Marker>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LiveResponse() {
-  const [sysState, setSysState]       = useState(null);
+  const { sysState, socket } = useSocket();
+  // We'll still manage local scanner state, but use global sysState
   const [scanning, setScanning]       = useState(false);
   const [scanStep, setScanStep]       = useState(0);  // 0=off 1=scanning 2=found
   const prevStatus = useRef(null);
 
   useEffect(() => {
-    socket.on('system_update', (data) => {
-      if (prevStatus.current !== 'ACTIVE' && data.systemStatus === 'ACTIVE') {
-        // Uber-style: quick scan animation then "found" state
-        setScanning(true);
-        setScanStep(1);
-        setTimeout(() => setScanStep(2), 1800);
-        setTimeout(() => { setScanning(false); setScanStep(0); }, 4000);
-      }
-      prevStatus.current = data.systemStatus;
-      setSysState(data);
-    });
-    return () => socket.off('system_update');
-  }, []);
+    if (!sysState) return;
+    
+    if (prevStatus.current !== 'ACTIVE' && sysState.systemStatus === 'ACTIVE') {
+      // Uber-style: quick scan animation then "found" state
+      setScanning(true);
+      setScanStep(1);
+      setTimeout(() => setScanStep(2), 1800);
+      setTimeout(() => { setScanning(false); setScanStep(0); }, 4000);
+    }
+    prevStatus.current = sysState.systemStatus;
+  }, [sysState]);
 
   // ── IDLE state ──────────────────────────────────────────────────────────────
   if (!sysState || sysState.systemStatus !== 'ACTIVE') {
@@ -173,7 +233,7 @@ export default function LiveResponse() {
     );
   }
 
-  const { patient, ambulances, dispatchedAmbulanceId, hospital, routes } = sysState;
+  const { patient, ambulances, dispatchedAmbulanceId, hospital, hospitals, routes, activeSignalOverrides } = sysState;
   const dispatched = ambulances?.find(a => a.id === dispatchedAmbulanceId);
   const isCritical = patient.severity === 'CRITICAL';
 
@@ -253,12 +313,19 @@ export default function LiveResponse() {
             {/* Mission Framing & Smooth Follow */}
             <MapControl dispatched={dispatched} patient={patient} hospital={hospital} />
 
+            {/* Active Green Corridor Signals */}
+            {activeSignalOverrides && activeSignalOverrides.map((node, i) => (
+              <Marker key={`signal-${i}`} position={node} icon={signalIcon} autoPan={false}>
+                <Popup autoPan={false}><strong>AI Green Corridor</strong><br />Signal Override: GREEN</Popup>
+              </Marker>
+            ))}
+
             {/* Routes */}
             {routes && [...routes].reverse().map((route, i) => {
-              // Red for heading to patient, Blue for heading to hospital
+              // Emerald Green for Green Corridor active phase
               const phaseRouteColor = patient.status === 'AWAITING_AMBULANCE' 
                 ? (route.isOptimal ? '#ef4444' : '#f87171') // RED tones
-                : (route.isOptimal ? '#3b82f6' : '#60a5fa'); // BLUE tones
+                : (route.isOptimal ? '#10b981' : '#60a5fa'); // EMERALD tones for Green Corridor
 
               return (
                 <Polyline
@@ -282,8 +349,10 @@ export default function LiveResponse() {
               const icon      = isArrived ? arrivedAmbIcon : isDisp ? dispatchedAmbIcon : idleAmbIcon;
               const tc        = trafficColor[amb.traffic] || trafficColor.Medium;
 
+              const MarkerComp = isDisp && !isArrived ? SmoothMarker : Marker;
+
               return (
-                <Marker key={amb.id} position={amb.location} icon={icon} autoPan={false}>
+                <MarkerComp key={amb.id} position={amb.location} icon={icon} autoPan={false}>
                   <Popup autoPan={false}>
                     <div style={{ fontFamily: 'Inter, sans-serif', minWidth: '160px' }}>
                       <p style={{ fontWeight: 900, fontSize: '13px', marginBottom: '4px' }}>
@@ -314,21 +383,56 @@ export default function LiveResponse() {
                       </div>
                     </div>
                   </Popup>
-                </Marker>
+                </MarkerComp>
               );
             })}
 
-            {/* Patient */}
-            {patient.status !== 'DELIVERED' && (
+            {/* Patient - Hide during PICKUP/TRANSIT */}
+            {patient.status === 'AWAITING_AMBULANCE' && (
               <Marker position={patient.location} icon={patIcon} autoPan={false}>
                 <Popup autoPan={false}><strong>🆘 Patient {patient.id}</strong><br />{patient.type} · {patient.severity}</Popup>
               </Marker>
             )}
 
-            {/* Hospital */}
-            <Marker position={hospital.location} icon={hospIcon} autoPan={false}>
-              <Popup autoPan={false}><strong>{hospital.name}</strong><br />{hospital.spec} Centre</Popup>
-            </Marker>
+            {/* Multi-Hospital Healthcare Grid */}
+            {hospitals && hospitals.map(h => {
+              const isSelected = hospital && h.id === hospital.id;
+              
+              const hIcon = new L.DivIcon({
+                className: '',
+                html: `
+                  <div style="
+                    width:30px;height:30px;
+                    background:${isSelected ? '#22d3ee' : '#2563eb'};
+                    border:2px solid white;
+                    border-radius:8px;
+                    display:flex;align-items:center;justify-content:center;
+                    color:white;font-size:15px;font-weight:900;
+                    box-shadow:${isSelected ? '0 0 25px rgba(34,211,238,1), 0 0 10px rgba(34,211,238,0.5)' : '0 3px 10px rgba(37,99,235,0.4)'};
+                    transition: all 0.5s ease;
+                    transform: ${isSelected ? 'scale(1.2)' : 'scale(1)'};
+                  ">H</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+              });
+
+              return (
+                <Marker 
+                  key={h.id} 
+                  position={h.location} 
+                  icon={hIcon}
+                  autoPan={false}
+                >
+                  <Popup autoPan={false}>
+                    <div className="font-sans">
+                      <p className="font-black text-gray-800">{h.name}</p>
+                      <p className="text-[10px] uppercase font-bold text-indigo-500">{h.spec} SPECIALTY</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Available Beds: {h.availableBeds} / {h.totalBeds}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
           </MapContainer>
         </div>
       </div>
@@ -349,8 +453,21 @@ export default function LiveResponse() {
                   <span className="text-base text-gray-400 ml-1 font-sans font-semibold">sec</span>
                 </h2>
               </div>
-              <Clock className="w-7 h-7 text-cyan-400 mt-1" />
+              <div className="text-right">
+                <Clock className="w-7 h-7 text-cyan-400 mb-1 ml-auto" />
+                <div className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                  🚦 {activeSignalOverrides?.length || 0} PREEMPTED
+                </div>
+              </div>
             </div>
+            
+            <div className="flex items-center gap-2 mb-3 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">
+                AI Green Corridor Active
+              </span>
+            </div>
+
             <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
               <div
                 className="bg-gradient-to-r from-cyan-500 to-sky-400 h-full rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
@@ -480,6 +597,27 @@ export default function LiveResponse() {
           </div>
           <p className="text-xl font-black text-gray-800">{hospital.name}</p>
           <p className="text-[10px] text-gray-400 mt-0.5 uppercase font-black tracking-widest">{hospital.spec} Specialization</p>
+          
+          {/* Bed Capacity Indicator */}
+          <div className="mt-4 p-3 bg-gray-50 border border-gray-100 rounded-xl">
+             <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ICU Capacity</span>
+                <span className={`text-[10px] font-black ${
+                   hospital.availableBeds < 3 ? 'text-red-500' : 'text-emerald-600'
+                }`}>
+                   {hospital.availableBeds} / {hospital.totalBeds} BEDS 
+                </span>
+             </div>
+             <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                <div 
+                   className={`h-full rounded-full transition-all duration-1000 ${
+                      hospital.availableBeds < 3 ? 'bg-red-500' : 'bg-emerald-500'
+                   }`}
+                   style={{ width: `${(hospital.availableBeds / hospital.totalBeds) * 100}%` }}
+                />
+             </div>
+          </div>
+
           <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 mt-3 text-xs text-gray-600 italic border-l-4 border-l-indigo-400">
             "{hospital.selectionReason || 'Nearest General Facility AI Match'}"
           </div>
