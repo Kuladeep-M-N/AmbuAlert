@@ -137,6 +137,8 @@ class SimulationEngine {
 
     if (!state.ambulances || !dispatchedAmbulanceId) return;
 
+    let lastCompletedCase = null;
+
     const ambIdx = state.ambulances.findIndex(a => a.id === dispatchedAmbulanceId);
     if (ambIdx === -1) return;
 
@@ -168,6 +170,8 @@ class SimulationEngine {
         ambulance.phase            = 'PICKUP';
         ambulance.currentTargetIdx = 0;
         this.pickupTimer           = PICKUP_TICKS;
+        // Reflect handoff to transport immediately for hospital-side intake updates.
+        patient.status             = 'IN_AMBULANCE';
 
         // Start fetching hospital route immediately (non-blocking)
         this._loadHospitalRoute(patient.location, hospital.location, dispatchedAmbulanceId);
@@ -175,6 +179,7 @@ class SimulationEngine {
 
     } else if (ambulance.phase === 'PICKUP') {
       // Brief pause — ambulance stays at patient position
+      if (patient.status !== 'IN_AMBULANCE') patient.status = 'IN_AMBULANCE';
       this.pickupTimer--;
 
       if (this.pickupTimer <= 0 && !this.loadingRoute) {
@@ -203,6 +208,16 @@ class SimulationEngine {
         ambulance.status   = 'ARRIVED';
         ambulance.eta      = 0;
         patient.status     = 'DELIVERED';
+
+        lastCompletedCase = {
+          patientId: patient.id,
+          type: patient.type,
+          severity: patient.severity,
+          hospitalName: hospital.name,
+          hospitalSpec: hospital.spec,
+          ambulanceId: ambulance.id,
+          deliveredAt: new Date().toISOString()
+        };
       }
     }
 
@@ -249,7 +264,8 @@ class SimulationEngine {
     State.setState({ 
       patient, 
       ambulances: updatedAmbs,
-      activeSignalOverrides 
+      activeSignalOverrides,
+      ...(lastCompletedCase ? { lastCompletedCase } : {})
     });
 
     if (this.io) {

@@ -1,220 +1,428 @@
-import React, { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
-import { 
-  Building2, 
-  Activity, 
-  Users, 
-  Clock, 
-  Heart, 
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Activity,
   AlertTriangle,
+  BedDouble,
+  Building2,
+  CheckCircle2,
+  Clock,
+  Heart,
   MoveUpRight,
   ShieldCheck,
-  Stethoscope
+  Stethoscope,
+  Users,
+  Waves,
+  XCircle
 } from 'lucide-react';
+import { socket } from '../socket';
 
-const socket = io('http://localhost:3000');
+const inferClinicalNeed = (type = '') => {
+  const value = type.toUpperCase();
+  if (value.includes('HEART') || value.includes('CHEST') || value.includes('V-FIB')) return 'CARDIAC';
+  if (value.includes('ACCIDENT') || value.includes('COLLISION') || value.includes('FALL')) return 'TRAUMA';
+  if (value.includes('PEDIATRIC') || value.includes('CHILD')) return 'PEDIATRIC';
+  if (value.includes('FIRE') || value.includes('BURN')) return 'BURN';
+  return 'GENERAL';
+};
+
+const severityTone = {
+  CRITICAL: {
+    badge: 'bg-rose-600 text-white border-rose-700',
+    panel: 'bg-rose-50 border-rose-200 text-rose-700',
+    label: 'Resuscitation Priority'
+  },
+  MAJOR: {
+    badge: 'bg-amber-500 text-white border-amber-600',
+    panel: 'bg-amber-50 border-amber-200 text-amber-700',
+    label: 'High Priority Trauma'
+  },
+  ROUTINE: {
+    badge: 'bg-sky-600 text-white border-sky-700',
+    panel: 'bg-sky-50 border-sky-200 text-sky-700',
+    label: 'Standard Triage'
+  }
+};
+
+const phaseLabel = {
+  PENDING: 'Pre-Alert',
+  DISPATCHED: 'Unit Dispatched',
+  PICKUP: 'Patient Boarding',
+  IN_AMBULANCE: 'Patient Onboard',
+  IN_TRANSIT: 'Inbound to Facility',
+  ARRIVED: 'Arrived',
+  DELIVERED: 'Handoff Completed'
+};
 
 const HospitalHub = () => {
   const [sysState, setSysState] = useState(null);
+  const [isBootstrapped, setIsBootstrapped] = useState(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(socket.connected);
 
   useEffect(() => {
-    socket.on('system_update', (state) => setSysState(state));
-    return () => socket.off('system_update');
+    let mounted = true;
+
+    const bootstrapStatus = async () => {
+      try {
+        const response = await fetch('/api/status');
+        if (!response.ok) throw new Error('status endpoint unavailable');
+        const current = await response.json();
+        if (mounted) setSysState(current);
+      } catch (err) {
+        console.warn('HospitalHub bootstrap status fetch failed:', err?.message || err);
+      } finally {
+        if (mounted) setIsBootstrapped(true);
+      }
+    };
+
+    if (!socket.connected) socket.connect();
+
+    const onConnect = () => setIsSocketConnected(true);
+    const onDisconnect = () => setIsSocketConnected(false);
+    const onSystemUpdate = (state) => setSysState(state);
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('system_update', onSystemUpdate);
+
+    bootstrapStatus();
+
+    return () => {
+      mounted = false;
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('system_update', onSystemUpdate);
+    };
   }, []);
 
-  if (!sysState) {
+  const {
+    patient,
+    hospital,
+    ambulances = [],
+    dispatchedAmbulanceId,
+    pendingAmbulanceOffers = [],
+    activeSignalOverrides = [],
+    systemStatus,
+    lastCompletedCase,
+    lastUpdated
+  } = sysState || {};
+
+  const dispatched = ambulances.find((a) => a.id === dispatchedAmbulanceId);
+  const severity = patient?.severity || 'ROUTINE';
+  const tone = severityTone[severity] || severityTone.ROUTINE;
+  const inferredNeed = inferClinicalNeed(patient?.type);
+  const isSpecMismatch = hospital?.spec && inferredNeed !== hospital.spec;
+  const capacityPct = hospital?.totalBeds ? Math.round((hospital.availableBeds / hospital.totalBeds) * 100) : null;
+
+  const stage = useMemo(() => {
+    if (!isBootstrapped && !sysState) return 'CONNECTING';
+    if (!sysState) return 'STANDBY';
+    if (systemStatus === 'IDLE') return 'STANDBY';
+    if (systemStatus === 'PENDING') return 'PRE_ALERT';
+    if (!patient || !hospital) return 'STANDBY';
+    if (patient.status === 'DELIVERED' || dispatched?.status === 'ARRIVED' || dispatched?.phase === 'ARRIVED') {
+      return 'HANDOFF';
+    }
+    return 'INBOUND';
+  }, [isBootstrapped, sysState, systemStatus, patient, hospital, dispatched]);
+
+  const operationalChecklist = useMemo(() => {
+    const critical = severity === 'CRITICAL';
+    const trauma = inferredNeed === 'TRAUMA' || severity === 'MAJOR';
+    return [
+      { label: 'Resus Bay Prepared', ready: critical || severity === 'MAJOR' },
+      { label: 'ICU Bed Reserved', ready: (hospital?.availableBeds || 0) > 0 },
+      { label: 'Trauma Team Alerted', ready: trauma },
+      { label: 'Blood & Crossmatch', ready: critical },
+      { label: 'Imaging Room Standby', ready: true }
+    ];
+  }, [severity, inferredNeed, hospital?.availableBeds]);
+
+  const livePhaseText = phaseLabel[patient?.status] || phaseLabel[dispatched?.phase] || 'Live';
+  const liveBannerText = patient?.status === 'IN_AMBULANCE'
+    ? 'Patient Received By Ambulance'
+    : stage === 'HANDOFF'
+      ? 'Patient Arrived'
+      : 'Inbound Patient Telemetry';
+
+  if (stage === 'CONNECTING') {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 font-medium animate-pulse">Connecting to Healthcare Network...</p>
+          <div className="w-12 h-12 border-4 border-cyan-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-600 font-medium animate-pulse">Connecting to Emergency Telemetry...</p>
         </div>
       </div>
     );
   }
 
-  const { patient, ambulances, dispatchedAmbulanceId, hospital } = sysState;
-  const dispatched = ambulances?.find(a => a.id === dispatchedAmbulanceId);
-  
-  // Only show incoming if THIS hospital is the designated one
-  const isIncoming = dispatched && hospital && (dispatched.status !== 'ARRIVED');
-
   return (
     <div className="h-full bg-gray-50 overflow-hidden flex flex-col p-6 font-sans">
-      {/* Header */}
-      <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <header className="flex justify-between items-center mb-6 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-            <Building2 size={24} />
+          <div className="w-11 h-11 bg-cyan-700 rounded-xl flex items-center justify-center text-white">
+            <Building2 size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Clinical Intake Hub</h1>
-            <p className="text-gray-400 text-sm font-medium">Smart City Emergency Coordination</p>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Hospital Hub</h1>
+            <p className="text-gray-500 text-sm font-semibold">Patient-Centric Intake and Handoff</p>
           </div>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Network Status</p>
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+        <div className="text-right">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Network</p>
+          {isSocketConnected ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-xs font-bold uppercase">Ready / Online</span>
+              <span className="text-xs font-bold uppercase">Online</span>
             </div>
-          </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-200">
+              <div className="w-2 h-2 bg-amber-500 rounded-full" />
+              <span className="text-xs font-bold uppercase">Reconnecting</span>
+            </div>
+          )}
+          {lastUpdated && (
+            <p className="text-[10px] text-gray-400 font-semibold mt-2">Updated {new Date(lastUpdated).toLocaleTimeString()}</p>
+          )}
         </div>
       </header>
 
-      {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
-        
-        {/* Left Column: Hospital Selection & Capacity */}
-        <div className="col-span-4 flex flex-col gap-6">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex-1">
-             <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                <Users size={14} className="text-indigo-400" /> Active Facility
-             </h2>
-             
-             {hospital ? (
-               <div className="space-y-6">
-                 <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                   <p className="text-lg font-black text-indigo-900">{hospital.name}</p>
-                   <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider">{hospital.spec} SPECIALTY</p>
-                 </div>
+        <div className="col-span-4 flex flex-col gap-6 min-h-0">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Users size={14} className="text-cyan-500" /> Active Facility
+            </h2>
 
-                 <div className="space-y-4">
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ICU Capacity</p>
-                        <p className="text-2xl font-black text-gray-900">{hospital.availableBeds} / {hospital.totalBeds}</p>
-                      </div>
-                      <span className="text-xs font-black text-emerald-500 bg-emerald-50 px-2 py-1 rounded-md mb-1">
-                        {Math.round((hospital.availableBeds / hospital.totalBeds) * 100)}% AVail
+            {hospital ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-cyan-50 rounded-2xl border border-cyan-100">
+                  <p className="text-lg font-black text-cyan-900 leading-tight">{hospital.name}</p>
+                  <p className="text-[10px] text-cyan-700 font-bold uppercase tracking-wider mt-1">{hospital.spec} specialist</p>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bed Capacity</p>
+                    {capacityPct !== null && (
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md">
+                        {capacityPct}% available
                       </span>
-                    </div>
-                    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                       <div 
-                         className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
-                         style={{ width: `${(hospital.availableBeds / hospital.totalBeds) * 100}%` }}
-                       />
-                    </div>
-                 </div>
+                    )}
+                  </div>
+                  <p className="text-2xl font-black text-gray-900 mb-2">{hospital.availableBeds ?? '-'} / {hospital.totalBeds ?? '-'}</p>
+                  <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-cyan-500 rounded-full transition-all duration-700"
+                      style={{ width: `${Math.max(0, Math.min(100, capacityPct || 0))}%` }}
+                    />
+                  </div>
+                </div>
 
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <Stethoscope size={20} className="text-indigo-400 mb-2" />
-                      <p className="text-[10px] font-black text-gray-400 uppercase">Specialization</p>
-                      <p className="text-sm font-black text-gray-800">{hospital.spec}</p>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <ShieldCheck size={20} className="text-emerald-400 mb-2" />
-                      <p className="text-[10px] font-black text-gray-400 uppercase">Trauma Level</p>
-                      <p className="text-sm font-black text-gray-800">Level 1</p>
-                    </div>
-                 </div>
-               </div>
-             ) : (
-               <div className="h-40 border-2 border-dashed border-gray-200 rounded-3xl flex items-center justify-center text-gray-400">
-                 No Active Facility Selected
-               </div>
-             )}
+                <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-600">
+                  {hospital.selectionReason || 'Routing engine selected this facility for fastest clinically matched care.'}
+                </div>
+
+                {isSpecMismatch && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                    Clinical mismatch detected: patient appears to need {inferredNeed}, destination specialty is {hospital.spec}.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-40 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
+                No facility selected yet.
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 overflow-y-auto min-h-0">
+            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <ShieldCheck size={14} className="text-emerald-500" /> Intake Checklist
+            </h3>
+            <div className="space-y-3">
+              {operationalChecklist.map((item) => (
+                <div key={item.label} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50">
+                  <span className="text-sm font-semibold text-gray-700">{item.label}</span>
+                  {item.ready ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-black uppercase">
+                      <CheckCircle2 size={14} /> Ready
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-gray-400 text-xs font-black uppercase">
+                      <XCircle size={14} /> Pending
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Incoming Patient Dashboard */}
-        <div className="col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden relative">
-          {!isIncoming ? (
-            <div className="h-full flex flex-col items-center justify-center p-12 text-center">
-              <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                <Activity size={48} className="text-gray-200" />
+        <div className="col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden min-h-0">
+          {stage === 'STANDBY' && (
+            <div className="h-full flex flex-col p-12 text-center overflow-y-auto">
+              <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <Activity size={44} className="text-gray-300" />
               </div>
-              <h3 className="text-2xl font-black text-gray-300 uppercase tracking-tighter italic">Standing By For Dispatch</h3>
-              <p className="text-gray-400 max-w-sm mt-2 font-medium">Monitoring all ambulance telemetry in the metropolitan area. System ready for clinical intake.</p>
+              <h3 className="text-2xl font-black text-gray-500 uppercase tracking-tight">No Active Emergency</h3>
+              <p className="text-gray-400 max-w-md mt-2 font-medium mx-auto">
+                System is monitoring city telemetry. Hospital intake teams remain in ready state for next dispatch.
+              </p>
+
+              <div className="max-w-xl w-full mx-auto mt-8 text-left">
+                <div className="p-5 rounded-2xl border border-gray-100 bg-gray-50">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Last Completed Case</p>
+
+                  {!lastCompletedCase ? (
+                    <p className="text-sm text-gray-500">No completed case in current session yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Patient</p>
+                        <p className="font-semibold text-gray-800">{lastCompletedCase.patientId} · {lastCompletedCase.type}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Severity</p>
+                        <p className="font-semibold text-gray-800">{lastCompletedCase.severity}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Destination</p>
+                        <p className="font-semibold text-gray-800">{lastCompletedCase.hospitalName} ({lastCompletedCase.hospitalSpec})</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Transport Unit</p>
+                        <p className="font-semibold text-gray-800">{lastCompletedCase.ambulanceId}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Delivered At</p>
+                        <p className="font-semibold text-gray-800">{new Date(lastCompletedCase.deliveredAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="h-full flex flex-col">
-              {/* Alert Banner */}
-              <div className="bg-rose-500 text-white p-4 flex justify-between items-center animate-pulse">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle size={20} />
-                  <span className="font-black uppercase tracking-widest text-xs">Priority Emergency Intake Incoming</span>
+          )}
+
+          {stage === 'PRE_ALERT' && (
+            <div className="h-full flex flex-col p-8 gap-6 overflow-y-auto">
+              <div className={`rounded-2xl border p-4 ${tone.panel}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle size={20} />
+                    <p className="font-black uppercase tracking-wider text-xs">Pre-Alert Received</p>
+                  </div>
+                  <span className="text-[10px] font-black uppercase">{phaseLabel.PENDING}</span>
                 </div>
-                <span className="px-3 py-1 bg-white/20 rounded-md text-[10px] font-black uppercase tracking-tighter">
-                  Dispatch ID: {dispatched.id}
-                </span>
               </div>
 
-              {/* Patient Profile */}
-              <div className="p-8 flex-1 flex flex-col min-h-0 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-8 mb-8">
-                   <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Incoming Victim</p>
-                      <h2 className="text-4xl font-black text-gray-900 tracking-tighter mb-2">{patient.id}</h2>
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-1 bg-rose-50 text-rose-600 rounded-md text-[10px] font-black uppercase ring-1 ring-rose-200">
-                          {patient.severity} SEVERITY
-                        </span>
-                        <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md text-[10px] font-black uppercase ring-1 ring-indigo-200">
-                          {patient.type}
-                        </span>
-                      </div>
-                   </div>
-                   <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 flex flex-col justify-center items-center text-center">
-                      <div className="flex items-end gap-1">
-                        <span className="text-5xl font-black text-indigo-600 tracking-tighter">
-                          {Math.max(0, Math.ceil((dispatched.eta || 0) / 60))}
-                        </span>
-                        <span className="text-xl font-black text-indigo-300 pb-1">min</span>
-                      </div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1 italic">ETA TO ARRIVAL</p>
-                   </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Patient</p>
+                  <p className="text-3xl font-black text-gray-900 mt-1">{patient?.id || 'Pending ID'}</p>
+                  <p className="text-sm font-semibold text-gray-600 mt-2">{patient?.type || 'Emergency Case'}</p>
                 </div>
-
-                {/* Vitals Grid */}
-                <div className="grid grid-cols-3 gap-6 mb-8">
-                   <div className="p-6 bg-rose-50 rounded-3xl border border-rose-100 flex flex-col items-center">
-                      <Heart size={24} className="text-rose-500 mb-2 animate-bounce" />
-                      <p className="text-[10px] font-black text-rose-400 uppercase">Heart Rate</p>
-                      <p className="text-2xl font-black text-rose-600">{Math.round(patient.vitals?.heartRate || 0)} BPM</p>
-                   </div>
-                   <div className="p-6 bg-sky-50 rounded-3xl border border-sky-100 flex flex-col items-center">
-                      <Activity size={24} className="text-sky-500 mb-2" />
-                      <p className="text-[10px] font-black text-sky-400 uppercase">SpO2 Level</p>
-                      <p className="text-2xl font-black text-sky-600">{Math.round(patient.vitals?.oxygen || 0)}%</p>
-                   </div>
-                   <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 flex flex-col items-center">
-                      <MoveUpRight size={24} className="text-amber-500 mb-2" />
-                      <p className="text-[10px] font-black text-amber-400 uppercase">Ambulance</p>
-                      <p className="text-2xl font-black text-amber-600">{dispatched.id}</p>
-                   </div>
+                <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Responder Candidates</p>
+                  <p className="text-3xl font-black text-gray-900 mt-1">{pendingAmbulanceOffers.length}</p>
+                  <p className="text-sm font-semibold text-gray-600 mt-2">Awaiting dispatcher acceptance</p>
                 </div>
+              </div>
 
-                {/* Live ECG Mock */}
-                <div className="flex-1 bg-black rounded-3xl p-6 relative overflow-hidden group">
-                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]" />
-                  <div className="relative flex flex-col h-full">
-                     <div className="flex justify-between items-center mb-4">
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
-                           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /> LIVE TELEMETRY STREAM
-                        </span>
-                        <span className="text-[10px] font-mono text-emerald-800">SCANNING_VECTORS...</span>
-                     </div>
-                     <div className="flex-1 flex items-center justify-center">
-                        <svg className="w-full h-24 stroke-emerald-500 fill-none" viewBox="0 0 100 20">
-                          <path d="M0 10 H20 L22 2 L26 18 L28 10 H100" strokeWidth="0.5" className="animate-[dash_2s_linear_infinite]" style={{ strokeDasharray: '100', strokeDashoffset: '100' }} />
-                        </svg>
-                     </div>
+              <div className="p-5 rounded-2xl border border-gray-100 bg-white">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Immediate Preparation</p>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {tone.label}. Prepare intake team, notify emergency physician, and keep bed assignment warm for rapid handoff.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(stage === 'INBOUND' || stage === 'HANDOFF') && (
+            <div className="h-full flex flex-col min-h-0">
+              <div className={`p-4 border-b ${tone.panel}`}>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <Waves size={18} className="animate-pulse" />
+                    <span className="font-black uppercase tracking-widest text-xs">
+                      {liveBannerText}
+                    </span>
                   </div>
+                  <span className={`px-3 py-1 rounded-md border text-[10px] font-black uppercase ${tone.badge}`}>
+                    {livePhaseText}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-8 grid grid-cols-2 gap-6 overflow-y-auto">
+                <div className="col-span-2 md:col-span-1 p-5 rounded-2xl border border-gray-100 bg-gray-50">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Patient Profile</p>
+                  <p className="text-3xl font-black text-gray-900">{patient?.id || 'Unknown'}</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-600">{patient?.type || 'Emergency'}</p>
+                  <div className="mt-3 flex gap-2">
+                    <span className={`px-2 py-1 rounded-md border text-[10px] font-black uppercase ${tone.badge}`}>
+                      {severity}
+                    </span>
+                    <span className="px-2 py-1 rounded-md border border-cyan-200 bg-cyan-50 text-cyan-700 text-[10px] font-black uppercase">
+                      Need: {inferredNeed}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="col-span-2 md:col-span-1 p-5 rounded-2xl border border-gray-100 bg-gray-50">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Transport Unit</p>
+                  <p className="text-3xl font-black text-gray-900">{dispatched?.id || 'Not Assigned'}</p>
+                  <div className="mt-3 flex items-center gap-3 text-gray-600">
+                    <Clock size={16} className="text-cyan-600" />
+                    <span className="text-sm font-semibold">ETA {Math.max(0, Math.ceil((dispatched?.eta || 0) / 60))} min</span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-3 text-gray-600">
+                    <MoveUpRight size={16} className="text-amber-600" />
+                    <span className="text-sm font-semibold">Signal overrides: {activeSignalOverrides.length}</span>
+                  </div>
+                </div>
+
+                <div className="col-span-2 grid grid-cols-3 gap-4">
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+                    <div className="flex items-center gap-2 text-rose-600 mb-1">
+                      <Heart size={16} />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Heart Rate</p>
+                    </div>
+                    <p className="text-2xl font-black text-rose-700">{Math.round(patient?.vitals?.heartRate || 0)} BPM</p>
+                  </div>
+
+                  <div className="p-4 bg-sky-50 border border-sky-100 rounded-2xl">
+                    <div className="flex items-center gap-2 text-sky-600 mb-1">
+                      <Activity size={16} />
+                      <p className="text-[10px] font-black uppercase tracking-widest">SpO2</p>
+                    </div>
+                    <p className="text-2xl font-black text-sky-700">{Math.round(patient?.vitals?.oxygen || 0)}%</p>
+                  </div>
+
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                    <div className="flex items-center gap-2 text-emerald-600 mb-1">
+                      <BedDouble size={16} />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Patient Status</p>
+                    </div>
+                    <p className="text-base font-black text-emerald-700 uppercase">
+                      {(patient?.status || 'UNKNOWN').replace(/_/g, ' ')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="col-span-2 p-5 rounded-2xl border border-gray-100 bg-white">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Clinical Recommendation</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {stage === 'HANDOFF'
+                      ? 'Patient handoff completed. Move case to treatment workflow and refresh bed availability.'
+                      : `Maintain ${tone.label.toLowerCase()}. Keep receiving team at bay entrance and prepare immediate transfer protocol on arrival.`}
+                  </p>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes dash {
-          to { stroke-dashoffset: 0; }
-        }
-      `}} />
     </div>
   );
 };

@@ -32,91 +32,137 @@ export default function EmergencyInput() {
     });
   };
 
-  return (
-    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col">
-      <h1 className="text-2xl font-bold mb-4 flex items-center gap-3 text-gray-800">
-        <Activity className="h-6 w-6 text-cyan-600" /> 
-        Incident Injection
-      </h1>
+  const quickTriggers = [
+    {
+      id: 'watch-vfib',
+      title: 'Smartwatch Sync: V-Fib',
+      subtitle: 'Detected irregular heartbeat patterns',
+      icon: Watch,
+      iconClass: 'text-rose-600 bg-rose-50',
+      hoverClass: 'hover:border-rose-200 hover:bg-rose-50/50',
+      payload: { type: 'Heart Attack', impact: 0, no_movement: false }
+    },
+    {
+      id: 'vehicle-collision',
+      title: 'Vehicle Telemetry: Collision',
+      subtitle: 'High-impact force and no-movement event',
+      icon: Car,
+      iconClass: 'text-amber-600 bg-amber-50',
+      hoverClass: 'hover:border-amber-200 hover:bg-amber-50/50',
+      payload: { type: 'Accident', impact: 45, no_movement: true }
+    },
+    {
+      id: 'panic-stroke',
+      title: 'App Panic Button',
+      subtitle: 'Immediate distress signal from mobile app',
+      icon: HeartPulse,
+      iconClass: 'text-cyan-700 bg-cyan-50',
+      hoverClass: 'hover:border-cyan-200 hover:bg-cyan-50/50',
+      payload: { type: 'Stroke', impact: 0, no_movement: false }
+    }
+  ];
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-        
-        {/* Manual Input */}
-        <div className="card shadow-md flex flex-col">
-          <h2 className="text-lg font-bold mb-3 text-gray-800 text-center">Manual Entry</h2>
-          <form onSubmit={submitManual} className="flex flex-col gap-3">
+  return (
+    <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 h-full overflow-y-auto pr-1">
+      <div className="mb-6 rounded-3xl border border-slate-200 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black flex items-center gap-3 text-slate-900 tracking-tight">
+              <Activity className="h-6 w-6 text-cyan-700" />
+              Incident Intake Console
+            </h1>
+            <p className="mt-2 text-sm text-slate-600 max-w-2xl">
+              Submit manually reported emergencies or dispatch from verified telemetry triggers. Designed for fast triage with clear operator comfort.
+            </p>
+          </div>
+          <div className="hidden md:flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-700">
+            Live Intake Ready
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start pb-4">
+        <div className="xl:col-span-3 card rounded-3xl border-slate-200 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-black text-slate-900">Manual Incident Entry</h2>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Operator Form</span>
+          </div>
+
+          <form onSubmit={submitManual} className="flex flex-col gap-5">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Symptoms / Claimed Incident</label>
-              <input 
+              <label className="block text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 mb-2">
+                Symptoms / Claimed Incident
+              </label>
+              <input
                 name="symptoms"
                 required
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm text-gray-900 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all" 
-                placeholder="e.g. Chest pain, faint"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 transition-all"
+                placeholder="e.g. Chest pain with dizziness"
               />
+              <p className="mt-2 text-xs text-slate-500">Describe key symptoms in short plain language to improve triage matching.</p>
             </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Patient Age</label>
-              <input 
-                name="age"
-                type="number"
-                required
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm text-gray-900 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-all" 
-                placeholder="e.g. 54"
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 mb-2">Patient Age</label>
+                <input
+                  name="age"
+                  type="number"
+                  required
+                  min="0"
+                  max="120"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 transition-all"
+                  placeholder="e.g. 54"
+                />
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 mb-2">Dispatch Policy</p>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  All manual submissions are routed to Decision Engine for ambulance-hospital matching and priority scoring.
+                </p>
+              </div>
             </div>
-            <button type="submit" disabled={loading} className="btn btn-primary mt-2 flex justify-center items-center gap-2">
-              {loading ? 'Processing...' : 'Submit Dispatch Request'}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary mt-2 h-11 rounded-xl flex justify-center items-center gap-2 text-sm font-bold disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Processing Dispatch...' : 'Submit Dispatch Request'}
             </button>
           </form>
         </div>
 
-        {/* Smart Triggers */}
-        <div className="flex flex-col">
-          <div className="card h-full flex flex-col justify-center gap-2 bg-gray-50 border-gray-200 p-4">
-            <h2 className="text-lg font-bold mb-1 text-gray-700 text-center">AI Automated Triggers</h2>
-            
-            <button 
-              onClick={() => triggerEmergency({ type: 'Heart Attack', impact: 0, no_movement: false })}
-              className="btn bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-gray-200 shadow-sm flex items-center gap-3 p-3 text-left transition-all group"
-            >
-               <div className="p-1.5 bg-red-50 rounded-lg text-red-500 group-hover:scale-110 transition-transform">
-                 <Watch className="h-5 w-5"/>
-               </div>
-               <div>
-                  <div className="font-bold text-sm text-gray-800">Smartwatch Sync: V-Fib</div>
-                  <div className="text-[10px] text-gray-500 font-medium">Detect irregular heartbeat patterns</div>
-               </div>
-            </button>
+        <div className="xl:col-span-2 card rounded-3xl border-slate-200 shadow-sm flex flex-col">
+          <div className="mb-5">
+            <h2 className="text-lg font-black text-slate-900">Automated Trigger Feed</h2>
+            <p className="text-xs text-slate-500 mt-1">One-click dispatch for trusted device and telemetry events.</p>
+          </div>
 
-            <button 
-              onClick={() => triggerEmergency({ type: 'Accident', impact: 45, no_movement: true })}
-              className="btn bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 border border-gray-200 shadow-sm flex items-center gap-3 p-3 text-left transition-all group"
-            >
-               <div className="p-1.5 bg-orange-50 rounded-lg text-orange-500 group-hover:scale-110 transition-transform">
-                 <Car className="h-5 w-5"/>
-               </div>
-               <div>
-                  <div className="font-bold text-sm text-gray-800">Vehicle Telemetry: Collision</div>
-                  <div className="text-[10px] text-gray-500 font-medium">High-impact force detected</div>
-               </div>
-            </button>
-
-            <button 
-              onClick={() => triggerEmergency({ type: 'Stroke', impact: 0, no_movement: false })}
-              className="btn bg-white hover:bg-cyan-50 hover:text-cyan-600 hover:border-cyan-200 border border-gray-200 shadow-sm flex items-center gap-3 p-3 text-left transition-all group"
-            >
-               <div className="p-1.5 bg-cyan-50 rounded-lg text-cyan-500 group-hover:scale-110 transition-transform">
-                 <HeartPulse className="h-5 w-5"/>
-               </div>
-               <div>
-                  <div className="font-bold text-sm text-gray-800">App Panic Button</div>
-                  <div className="text-[10px] text-gray-500 font-medium">Immediate patient distress signal</div>
-               </div>
-            </button>
-
+          <div className="space-y-3 overflow-y-auto pr-1">
+            {quickTriggers.map((trigger) => {
+              const Icon = trigger.icon;
+              return (
+                <button
+                  key={trigger.id}
+                  onClick={() => triggerEmergency(trigger.payload)}
+                  disabled={loading}
+                  className={`w-full text-left border border-slate-200 rounded-2xl p-4 bg-white transition-all duration-200 shadow-sm hover:shadow-md ${trigger.hoverClass} disabled:opacity-70 disabled:cursor-not-allowed`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-xl ${trigger.iconClass}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{trigger.title}</p>
+                      <p className="text-xs text-slate-500 mt-1">{trigger.subtitle}</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
-
       </div>
     </div>
   );
