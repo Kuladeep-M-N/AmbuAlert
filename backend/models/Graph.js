@@ -1,3 +1,5 @@
+const AStarSolver = require('../services/AStarSolver');
+
 class Graph {
   calcDistance(lat1, lon1, lat2, lon2) {
     const R = 6371;
@@ -49,7 +51,7 @@ class Graph {
     return null;
   }
 
-  async findMultipleRoutes(startLoc, endLoc) {
+  async findMultipleRoutes(startLoc, endLoc, severity = 'ROUTINE') {
        let routes = [];
        // 1. Best Route
        let best = await this.fetchOSRM(startLoc, endLoc);
@@ -66,44 +68,37 @@ class Graph {
        if (alt2) routes.push(alt2);
 
        const trafficLevels = ['Low', 'Medium', 'High'];
-       const trafficWeights = {'Low': 0, 'Medium': 5, 'High': 12};
        
        let scoredRoutes = routes.map((r, index) => {
            // Simulate ML traffic classification mapping over the geographic vector
            let predictedTraffic = trafficLevels[Math.floor(Math.random() * trafficLevels.length)];
            
-           // Ensure the "best" direct API route strongly trends better, but random forest can overturn it
+           // Ensure the "best" direct API route strongly trends better
            if (index === 0 && predictedTraffic === 'High') {
                predictedTraffic = 'Medium'; 
            }
-
-           // Risk simulated: distance (km) + arbitrary accident-prone vector logic
-           const riskFactor = (r.distance * 0.5) + (index * 2);
-           
-           // ML Equation: Best Route = minimum(time + traffic + risk)
-           const timeScore = r.etaMinutes;
-           const trafficScore = trafficWeights[predictedTraffic];
-           const totalScore = timeScore + trafficScore + riskFactor;
 
            return {
                id: `route-${index+1}`,
                coordinates: r.coordinates,
                distance: r.distance,
                distanceStr: r.distance.toFixed(2) + ' km',
-               etaMinutes: Math.max(1, Math.ceil(timeScore + (trafficScore/2))), // adjust real ETA slightly by traffic
                trafficString: predictedTraffic,
-               score: totalScore
+               etaMinutes: Math.ceil(r.etaMinutes)
            }
        });
 
-       // Sort by Random Forest Decision Model score (lowest is best)
-       scoredRoutes.sort((a,b) => a.score - b.score);
+       // 3. AI-Powered A* Routing Logic
+       // Evaluates f = g + h (distance + traffic friction + heuristic focus)
+       const aStarScored = AStarSolver.solve(scoredRoutes, startLoc, endLoc, severity);
 
-       let colors = ['#22c55e', '#eab308', '#ef4444'];
+       const colors = ['#22c55e', '#eab308', '#ef4444'];
 
-       return scoredRoutes.map((r, index) => {
+       return aStarScored.map((r, index) => {
            r.color = colors[index % 3];
            r.isOptimal = index === 0;
+           r.aiReason = r.aStarMetric.reason;
+           r.fScore = r.aStarMetric.f;
            return r;
        });
   }

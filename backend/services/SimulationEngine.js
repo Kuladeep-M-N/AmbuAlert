@@ -50,11 +50,11 @@ class SimulationEngine {
     if (i !== -1) state.ambulances[i] = { ...state.ambulances[i], ...ambulance };
   }
 
-  _loadHospitalRoute(patLoc, hospLoc, dispatchedId) {
+  _loadHospitalRoute(patLoc, hospLoc, dispatchedId, severity = 'ROUTINE') {
     if (this.loadingRoute) return;
     this.loadingRoute = true;
 
-    Graph.findMultipleRoutes(patLoc, hospLoc)
+    Graph.findMultipleRoutes(patLoc, hospLoc, severity)
       .then(newRoutes => {
         if (newRoutes && newRoutes.length > 0) {
           // Use shared utility for smooth movement
@@ -174,7 +174,7 @@ class SimulationEngine {
         patient.status             = 'IN_AMBULANCE';
 
         // Start fetching hospital route immediately (non-blocking)
-        this._loadHospitalRoute(patient.location, hospital.location, dispatchedAmbulanceId);
+        this._loadHospitalRoute(patient.location, hospital.location, dispatchedAmbulanceId, patient.severity);
       }
 
     } else if (ambulance.phase === 'PICKUP') {
@@ -235,8 +235,8 @@ class SimulationEngine {
       ambulance.rerouteTicks++;
       
       if (ambulance.rerouteTicks >= 30) { // 30 ticks = 15 seconds
-        console.log('🔄 AI Re-Route Triggered: Optimizing Green Corridor...');
-        this._loadHospitalRoute(ambulance.location, hospital.location, dispatchedAmbulanceId);
+        console.log(`🔄 AI Re-Route Triggered [${ambulance.id}]: Optimizing for ${patient.severity} patient...`);
+        this._loadHospitalRoute(ambulance.location, hospital.location, dispatchedAmbulanceId, patient.severity);
         ambulance.rerouteTicks = 0;
       }
     }

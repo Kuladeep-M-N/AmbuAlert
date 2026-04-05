@@ -7,6 +7,22 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
+const glowStyles = `
+  .route-glow {
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
+    stroke-linecap: round;
+    transition: all 0.5s ease-in-out;
+  }
+  .route-alt {
+    stroke-dasharray: 8, 12;
+    opacity: 0.6;
+  }
+  .route-traffic {
+    stroke-dasharray: 2, 8;
+    opacity: 0.4;
+  }
+`;
+
 // ─── Leaflet Icons ────────────────────────────────────────────────────────────
 
 const idleAmbIcon = new L.DivIcon({
@@ -207,6 +223,13 @@ export default function LiveResponse() {
   const prevStatus = useRef(null);
 
   useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = glowStyles;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
+  useEffect(() => {
     socket.connect();
     socket.on('system_update', (data) => {
       if (prevStatus.current !== 'ACTIVE' && data.systemStatus === 'ACTIVE') {
@@ -363,18 +386,25 @@ export default function LiveResponse() {
               <Marker key={`sig-${i}`} position={node} icon={signalIcon} />
             ))}
 
-            {/* Routes */}
-            {routes?.map((route, i) => (
-              <Polyline
-                key={route.id || i}
-                positions={route.coordinates}
-                pathOptions={{
-                  color: route.isOptimal ? (isCritical ? '#ef4444' : '#10b981') : '#94a3b8',
-                  weight: route.isOptimal ? 6 : 3,
-                  opacity: route.isOptimal ? 1 : 0.4
-                }}
-              />
-            ))}
+            {/* AI-Powered A* Routing Visualization */}
+            {routes?.map((route, i) => {
+              const weight = route.isOptimal ? 8 : 4;
+              const opacity = route.isOptimal ? 1 : 0.6;
+              const className = route.isOptimal ? 'route-glow' : (i === 1 ? 'route-alt' : 'route-traffic');
+              
+              return (
+                <Polyline
+                  key={route.id || i}
+                  positions={route.coordinates}
+                  pathOptions={{
+                    color: route.color || '#94a3b8',
+                    weight: weight,
+                    opacity: opacity,
+                    className: className
+                  }}
+                />
+              );
+            })}
 
             {/* Fleet & Patient */}
             {ambulances?.map(amb => {
@@ -459,6 +489,43 @@ export default function LiveResponse() {
            <div className="mt-4 flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient Status</span>
               <span className="text-sm font-black text-slate-800 capitalize">{patient.status.replace(/_/g, ' ').toLowerCase()}</span>
+           </div>
+        </div>
+
+        {/* AI Routing Analysis Section */}
+        <div className="card bg-slate-900 text-white p-6 rounded-[2rem] shadow-2xl overflow-hidden relative border border-white/10 mt-2">
+           <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Zap className="w-24 h-24 text-emerald-400" />
+           </div>
+           <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-4">
+                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+                 <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em]">AI Navigation Hub</h3>
+              </div>
+              
+              <div className="flex items-end justify-between mb-6">
+                 <div>
+                   <p className="text-[10px] font-bold text-white/40 uppercase mb-1">A* Optimizer Score</p>
+                   <p className="text-4xl font-black italic tracking-tighter">F: {routes?.[0]?.fScore || '---'}</p>
+                 </div>
+                 <div className="text-right">
+                   <p className="text-[10px] font-bold text-white/40 uppercase mb-1">Status</p>
+                   <p className="text-xs font-black text-emerald-400 uppercase">Optimal Path Locked</p>
+                 </div>
+              </div>
+
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm">
+                 <p className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-2">Strategy Reasoning</p>
+                 <p className="text-xs font-medium text-white/80 leading-relaxed italic">
+                   "{routes?.[0]?.aiReason || 'Computing diagnostic urban vectors for medical clearance...'}"
+                 </p>
+              </div>
+
+              <div className="mt-6 flex gap-2">
+                 <div className="flex-1 h-1 bg-emerald-400 rounded-full" />
+                 <div className="flex-1 h-1 bg-white/10 rounded-full" />
+                 <div className="flex-1 h-1 bg-white/10 rounded-full" />
+              </div>
            </div>
         </div>
       </div>
