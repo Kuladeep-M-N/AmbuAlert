@@ -6,7 +6,7 @@ export const useRole = () => useContext(RoleContext);
 
 export const RoleProvider = ({ children }) => {
   const [role, setRole] = useState(() => {
-    return localStorage.getItem('ambualert_role') || 'viewer';
+    return localStorage.getItem('ambualert_role') || 'public';
   });
 
   const updateRole = (newRole) => {
@@ -16,12 +16,13 @@ export const RoleProvider = ({ children }) => {
 
   const roles = {
     admin: { label: 'Administrator', access: ['dashboard', 'input', 'decision', 'live', 'hospital', 'metaverse'] },
-    dispatcher: { label: 'Emergency Dispatcher', access: ['dashboard', 'input', 'decision', 'live', 'hospital'] },
-    hospital: { label: 'Hospital Operator', access: ['hospital'] },
-    viewer: { label: 'System Viewer', access: ['dashboard', 'live'] },
+    paramedic: { label: 'Field Responder', access: ['dashboard', 'input', 'decision', 'live', 'hospital'] },
+    doctor: { label: 'ER Specialist', access: ['hospital'] },
+    public: { label: 'Citizen Portal', access: ['dashboard', 'live'] },
   };
 
   const hasAccess = (page) => {
+    if (!role || !roles[role]) return false;
     return roles[role].access.includes(page);
   };
 

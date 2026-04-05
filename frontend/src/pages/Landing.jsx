@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRole } from '../context/RoleContext';
 import Hero from '../components/Landing/Hero';
 import Features from '../components/Landing/Features';
 import Stats from '../components/Landing/Stats';
@@ -7,8 +10,16 @@ import Footer from '../components/Landing/Footer';
 import RoleSelector from '../components/Landing/RoleSelector';
 
 const Landing = () => {
+  const navigate = useNavigate();
+  const { updateRole } = useRole();
   const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [systemStats, setSystemStats] = useState(null);
+
+  const handleRoleSelect = (roleKey) => {
+    updateRole(roleKey);
+    setShowRoleSelector(false);
+    navigate('/app');
+  };
 
   useEffect(() => {
     // Fetch system status for the footer/stats
@@ -28,14 +39,27 @@ const Landing = () => {
   }, []);
 
   return (
-    <div className="bg-slate-900 border-none selection:bg-red-500/30 selection:text-red-200">
-      <Hero onEnter={() => setShowRoleSelector(true)} />
+    <div className="relative min-h-screen bg-gray-50 border-none selection:bg-cyan-500/30 selection:text-cyan-900">
+      {/* Global Background Layer: Animated Grid */}
+      <motion.div
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.15] animate-grid-shift"
+        style={{
+          backgroundImage: `
+            linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px),
+            linear-gradient(180deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px'
+        }}
+      />
+
+      <div className="relative z-10">
+        <Hero onEnter={() => setShowRoleSelector(true)} />
       
       <div id="features" className="max-w-7xl mx-auto px-4 py-24">
         <Features />
       </div>
 
-      <div id="stats" className="bg-slate-950/50 border-y border-slate-800">
+      <div id="stats" className="bg-white border-y border-gray-100 shadow-sm relative z-10">
         <div className="max-w-7xl mx-auto px-4 py-24">
           <Stats stats={systemStats} />
         </div>
@@ -47,9 +71,15 @@ const Landing = () => {
 
       <Footer stats={systemStats} />
 
-      {showRoleSelector && (
-        <RoleSelector onClose={() => setShowRoleSelector(false)} />
-      )}
+      <AnimatePresence>
+        {showRoleSelector && (
+          <RoleSelector 
+            onSelect={handleRoleSelect} 
+            onClose={() => setShowRoleSelector(false)} 
+          />
+        )}
+      </AnimatePresence>
+      </div>
     </div>
   );
 };

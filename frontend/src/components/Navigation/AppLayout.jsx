@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import { socket } from '../../socket';
+import { Outlet, Navigate, useLocation, Link } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { socket } from '../../socket';
+import { useRole } from '../../context/RoleContext';
+import { Home, LayoutDashboard } from 'lucide-react';
 
 const AppLayout = () => {
+  const { role } = useRole();
+  const location = useLocation();
   const [isConnected, setIsConnected] = useState(socket.connected);
 
   useEffect(() => {
-    socket.connect();
+    // Only connect if we are in the app and have a role
+    if (role) {
+      socket.connect();
+    }
 
     function onConnect() {
       setIsConnected(true);
     }
+
     function onDisconnect() {
       setIsConnected(false);
     }
@@ -24,28 +32,31 @@ const AppLayout = () => {
       socket.off('disconnect', onDisconnect);
       socket.disconnect();
     };
-  }, []);
+  }, [role]);
 
   const handleReset = () => {
-    fetch('http://localhost:3000/api/decision', { method: 'POST' }).catch(() => {});
     socket.emit('reset_simulation');
   };
 
+  if (!role) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
-    <div className="flex bg-slate-900 text-slate-50 min-h-screen">
+    <div className="flex bg-gray-50 text-gray-800 min-h-screen">
       <Sidebar isConnected={isConnected} onReset={handleReset} />
       
       <div className="flex-1 flex flex-col min-h-screen max-h-screen overflow-hidden">
         {/* Universal App Header */}
-        <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-8 shrink-0">
-          <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-slate-500">
-             <LayoutDashboard className="h-4 w-4" />
+        <header className="h-16 border-b border-gray-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-8 shrink-0 z-20">
+          <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-gray-400">
+             <LayoutDashboard className="h-4 w-4 text-cyan-600" />
              <span>Control Center / {location.pathname.split('/').pop()}</span>
           </div>
 
           <Link 
             to="/" 
-            className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors"
+            className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-cyan-600 transition-colors"
           >
             <Home className="h-4 w-4" />
             Back to Home
@@ -59,9 +70,5 @@ const AppLayout = () => {
     </div>
   );
 };
-
-// Internal imports
-import { Home, LayoutDashboard } from 'lucide-react';
-import { useLocation, Link } from 'react-router-dom';
 
 export default AppLayout;

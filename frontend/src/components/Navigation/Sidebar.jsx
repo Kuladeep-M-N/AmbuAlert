@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, AlertTriangle, HeartPulse, Building2, Map, LayoutDashboard, Database, Settings } from 'lucide-react';
+import { Activity, AlertTriangle, HeartPulse, Building2, Map, LayoutDashboard, Database, Settings, LogOut } from 'lucide-react';
 import { useRole } from '../../context/RoleContext';
 
 const Sidebar = ({ isConnected, onReset }) => {
@@ -18,17 +18,17 @@ const Sidebar = ({ isConnected, onReset }) => {
   const filteredLinks = allNavLinks.filter(link => hasAccess(link.id));
 
   return (
-    <nav className="w-64 bg-slate-800 border-r border-slate-700 p-4 flex flex-col gap-6 h-screen sticky top-0">
+    <nav className="w-64 bg-gray-100 border-r border-gray-200 p-4 flex flex-col gap-6 h-screen sticky top-0">
       <Link to="/" className="flex items-center gap-3 px-2 hover:opacity-80 transition-opacity">
-        <Activity className="h-8 w-8 text-red-500" />
+        <Activity className="h-8 w-8 text-cyan-600" />
         <div>
-          <h1 className="text-xl font-bold tracking-wider text-slate-50">AmbuAlert</h1>
-          <p className="text-[10px] text-slate-500 font-medium uppercase tracking-tighter">{roles[role].label}</p>
+          <h1 className="text-xl font-bold tracking-wider text-gray-800">AmbuAlert</h1>
+          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{roles[role].label}</p>
         </div>
       </Link>
       
       <div className="flex flex-col gap-2">
-        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider px-4 mb-2">Systems</p>
+        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-4 mb-2">Systems</p>
         {filteredLinks.map((link) => {
           const isActive = location.pathname === link.path;
           const Icon = link.icon;
@@ -38,30 +38,30 @@ const Sidebar = ({ isConnected, onReset }) => {
               to={link.path}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive 
-                  ? 'bg-red-500/10 text-red-500 border border-red-500/20 shadow-lg shadow-red-500/5' 
-                  : 'hover:bg-slate-700/50 text-slate-400 hover:text-slate-200'
+                  ? 'bg-cyan-50 text-cyan-600 border border-cyan-100 shadow-sm' 
+                  : 'hover:bg-gray-200 text-gray-600 hover:text-gray-900'
               }`}
             >
               <Icon className={`h-5 w-5 ${isActive ? 'animate-pulse' : ''}`} />
-              <span className="font-medium text-sm">{link.label}</span>
+              <span className="font-semibold text-sm">{link.label}</span>
             </Link>
           )
         })}
       </div>
 
       <div className="mt-auto space-y-4">
-        <div className="p-4 card bg-slate-900/50 border-slate-700/50 text-xs">
+        <div className="p-4 rounded-xl bg-white border border-gray-200 shadow-sm text-xs">
           <div className="flex items-center justify-between mb-3">
              <div className="flex items-center gap-2">
-               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`}></div>
-               <span className="text-slate-400">Hub Status: {isConnected ? 'Online' : 'Offline'}</span>
+               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-red-500'}`}></div>
+               <span className="text-gray-500 font-medium">Hub Status: {isConnected ? 'Online' : 'Offline'}</span>
              </div>
           </div>
           
           <div className="space-y-2">
             {role === 'admin' && (
               <button 
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-slate-300 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold transition-colors"
                 onClick={onReset}
               >
                 <Database className="h-3 w-3" />
@@ -71,7 +71,7 @@ const Sidebar = ({ isConnected, onReset }) => {
 
             <Link 
               to="/" 
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 rounded text-red-400 font-bold transition-all"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-red-50 hover:bg-red-100 border border-red-200 rounded text-red-600 font-bold transition-all"
             >
               <LogOut className="h-3 w-3" />
               Exit Control Center
@@ -79,16 +79,13 @@ const Sidebar = ({ isConnected, onReset }) => {
           </div>
         </div>
         
-        <div className="flex items-center justify-between px-2 text-slate-500 text-[10px] font-medium uppercase tracking-widest">
+        <div className="flex items-center justify-between px-2 text-gray-400 text-[10px] font-bold uppercase tracking-widest">
           <span>v1.0.4 - STABLE</span>
-          <Settings className="h-3 w-3 cursor-pointer hover:text-slate-300" />
+          <Settings className="h-3 w-3 cursor-pointer hover:text-gray-600" />
         </div>
       </div>
     </nav>
   );
 };
-
-// Internal icon import
-import { LogOut } from 'lucide-react';
 
 export default Sidebar;
