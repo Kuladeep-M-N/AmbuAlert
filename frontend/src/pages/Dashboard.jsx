@@ -1,23 +1,10 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { socket } from '../socket';
+import { useSocket } from '../context/SocketContext';
 import { Activity, Radio, Server, Users } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [sysState, setSysState] = useState(null);
-
-  useEffect(() => {
-    socket.on('system_update', (data) => {
-      setSysState(data);
-    });
-    // fetch initial fetch
-    fetch('http://localhost:3000/api/status')
-      .then(res => res.json())
-      .then(data => setSysState(data));
-
-    return () => socket.off('system_update');
-  }, []);
+  const { sysState } = useSocket();
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in duration-500 h-full flex flex-col">
